@@ -10,7 +10,8 @@ import threading, logging
 from django.conf import settings as _settings
 
 from reaktor import \
-    ReaktorError, ReaktorHttpError, ReaktorIOError, ReaktorApiError
+    ReaktorError, ReaktorHttpError, ReaktorIOError, \
+    ReaktorApiError, ReaktorAuthError
 
 
 # keep call history to be logged eventually
