@@ -221,8 +221,8 @@ class ReaktorError(Exception):
         code: int, error-code
         message: string
         """
-        self.code = code
-        self.message = message
+        self.code, self.message = code, message
+        logger.error("reaktor error: %i %s" % (code, message))
 
     def __str__(self):
         """Get string for exception.
