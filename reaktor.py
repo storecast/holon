@@ -71,40 +71,13 @@ import time
 import types
 import logging
 import StringIO
+from json import dumps as jsonwrite
+from json import loads as jsonread
 
 import pycurl
 pycurl.global_init(pycurl.GLOBAL_ALL)
 
-logger = logging.getLogger(__name__)
-
-
-# import json
-try:
-    # try to import stdlib json (py 2.6)
-    from json import dumps as jsonwrite
-    from json import loads as jsonread
-
-except ImportError, e:
-    logger.error(u"reaktor: failed to import json, import simplejson")
-
-    # next try simplejson
-    try:
-        from simplejson import dumps as jsonwrite
-        from simplejson import loads as jsonread
-
-    except ImportError, e:
-        logger.error(u"reaktor: failed to import simplejson, import pljson")
-
-        # fallabck to python-only implementation
-        import pljson # LGPL: patrickdlogan@stardecisions.com
-
-        def jsonwrite(data):
-            """Encode data -> json"""
-            return pljson.JsonWriter().write(data)
-
-        def jsonread(data):
-            """Decode json -> data"""
-            return pljson.JsonReader().read(data)
+LOG = logging.getLogger(__name__)
 
 
 # http-header User-Agent
@@ -221,13 +194,14 @@ class ReaktorError(Exception):
         code: int, error-code
         message: string
         """
+        Exception.__init__(self, message)
         self.code, self.message = code, message
-        logger.error("reaktor error: %i %s" % (code, message))
+        LOG.error("reaktor error: %i %s" % (code, message))
 
     def __str__(self):
         """Get string for exception.
         """
-        return "%s: %s" % (self.code, self.message)
+        return "%i: %s" % (self.code, self.message)
 
 
 class ReaktorIOError(ReaktorError):
@@ -301,12 +275,12 @@ class Reaktor(object):
         return interface
 
 
-    def __init__(self, keepHistory = False):
+    def __init__(self, keep_history = False):
         """Init.
-        Pass True for keepHistory to keep a call history and get
-        it with getHistory.
+        Pass True for keep_history to keep a call history and get
+        it with get_history.
         """
-        self.history = [] if keepHistory else None
+        self.history = [] if keep_history else None
 
 
     def clear(self):
@@ -316,7 +290,7 @@ class Reaktor(object):
             self.history = []
 
 
-    def getHistory(self):
+    def get_history(self):
         """Get call history if any.
         If passed True to __init__ it returns a list else None.
         """
@@ -353,7 +327,7 @@ class Reaktor(object):
             "Content-type: application/octet-stream",
             "Content-Length: %i" % len(post)])
 
-        ts = time.time()
+        start_time = time.time()
 
         # the actual call
         try:
@@ -363,19 +337,17 @@ class Reaktor(object):
 
         except pycurl.error, err:
             # raise ReaktorIOError for curl errors
-            raise ReaktorIOError(*err)
+            raise ReaktorIOError(err[0], err[1])
 
         data = data.getvalue()
         data = unicode(data, "utf-8")
 
         if not self.history == None:
-            ts = int((time.time() - ts) * 1000)
             self.history.append(
                 (u"%s%sjson=%s" % (url,  u"&" if "?" in url else u"?", post),
-                code,
-                ts,))
+                code, int((time.time() - start_time) * 1000),))
 
-        logger.debug("\nRequest:\n%s\nResponse:\n%s" % (post, data))
+        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, data))
 
         # raise ReaktorHttpError for http response status <> 200
         if not code == 200:
@@ -403,7 +375,7 @@ class Reaktor(object):
 
 
 
-""" Some convenience stuff: """
+# Some convenience stuff:
 
 
 def hash_password(password):
@@ -452,11 +424,6 @@ def download_document(token, doc_id, path,
 
     Return: string, the filename as suggested by server
     """
-    '''pycurl = sys.modules.get("pycurl")
-    if not pycurl or not isinstance(pycurl, types.ModuleType):
-        import pycurl
-        pycurl.global_init(pycurl.GLOBAL_ALL)'''
-
     curl = pycurl.Curl()
     curl.setopt(pycurl.USERAGENT, USERAGENT.encode("utf-8"))
     curl.setopt(pycurl.CONNECTTIMEOUT, CONNECTTIMEOUT)
@@ -511,7 +478,7 @@ def download_document(token, doc_id, path,
 
 
     if progress_func:
-        def curl_progress_func(down_total, down_now, up_total, up_now):
+        def cb_curl_progress_func(down_total, down_now, up_total, up_now):
             """Call the actual progress-function.
             To be passed to curl.
             """
@@ -526,7 +493,7 @@ def download_document(token, doc_id, path,
             return progress_func(ratio) # return True to cancel download
 
         curl.setopt(pycurl.NOPROGRESS, 0)
-        curl.setopt(pycurl.PROGRESSFUNCTION, curl_progress_func)
+        curl.setopt(pycurl.PROGRESSFUNCTION, cb_curl_progress_func)
 
 
     fhl = open(path, "wb")
@@ -544,7 +511,7 @@ def download_document(token, doc_id, path,
         curl.close()
         # err[0] == 23: # write error. no space left on device?
         # err[0] == 42: # aborted by progress function
-        raise ReaktorIOError(*err)
+        raise ReaktorIOError(err[0], err[1])
 
     except Exception:
         fhl.close()
