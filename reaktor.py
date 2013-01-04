@@ -303,8 +303,11 @@ class Reaktor(object):
         args: list of arguments for '<interface>.<function>'
         Return: ReaktorObject of list of ReaktorObject's
         """
+        # some args might not be JSON-serializable, e.g. sets
+        params = [list(arg) if isinstance(arg, set) else arg for arg in args]
+
         # json-encode request data
-        post = jsonwrite({u"method": function, u"params": args})
+        post = jsonwrite({u"method": function, u"params": params})
 
         # url to json-interface
         url = u"%s://%s:%i%s" % (
