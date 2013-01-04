@@ -1,0 +1,7 @@
+This is the next shot for a reaktor client library.
+It gives you
+- a singleton reaktor object
+- a reaktor object singleton to the current thread (purpose of this gets explained later)
+- or you can just instantiate your own reaktor object
+For signatures of a reaktor object see http://txtr.com/reaktor/api/
+Ask questions to sascha.dieckmann@txtr.com
