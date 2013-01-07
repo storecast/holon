@@ -12,8 +12,7 @@ import threading, logging
 from django.conf import settings
 
 from holon.reaktor import Reaktor, \
-    ReaktorError, ReaktorHttpError, ReaktorIOError, \
-    ReaktorApiError, ReaktorAuthError
+    ReaktorError, ReaktorHttpError, ReaktorIOError, ReaktorApiError
 from holon.caching import CachingReaktor
 
 

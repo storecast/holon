@@ -223,19 +223,18 @@ class ReaktorHttpError(ReaktorError):
 class ReaktorApiError(ReaktorError):
     """ReaktorError to be thrown by class Reaktor,
     caused by the remote reaktor api.
-    self.code here is a reaktor error code.
+    self.code here is a reaktor error message.
     """
-    pass
+    AUTHENTICATION_INVALID         = u"AUTHENTICATION_INVALID"
+    DISCOVERY_SERVICE_ACCESS_ERROR = u"DISCOVERY_SERVICE_ACCESS_ERROR"
+    ILLEGAL_ARGUMENT_ERROR         = u"ILLEGAL_ARGUMENT_ERROR"
+    UNKNOWN_ENTITY_ERROR           = u"UNKNOWN_ENTITY_ERROR"
 
-
-class ReaktorAuthError(ReaktorError):
-    """ReaktorApiError to be thrown by class Reaktor,
-    caused by the remote reaktor api, specifying an authentication error.
-    self.code here is a reaktor error code.
-
-    As a specialization of ReaktorApiError this is a convenience class.
-    We could add more of this for distinct error codes.
-    """
+    def __init__(self, code = 0, message = None):
+        """Currently the reaktor hasn't a consistent numeric
+        error code scheme. We have to rely on the messages.
+        """
+        ReaktorError(code = message, message = message)
 
 
 
@@ -365,8 +364,6 @@ class Reaktor(object):
         if err:
             code = err["code"]
             err = err.get("msg", unicode(code))
-            if code == 401:
-                raise ReaktorAuthError(code, err)
             raise ReaktorApiError(code, err)
 
         # return result as ReaktorObject('s)
