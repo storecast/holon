@@ -223,6 +223,14 @@ class ReaktorHttpError(ReaktorError):
     pass
 
 
+class ReaktorJSONRPCError(ReaktorError):
+    """ReaktorError to be thrown by class Reaktor,
+    caused by an RPC ID mismatch in request and response.
+    self.code here is an http status code.
+    """
+    pass
+
+
 class ReaktorApiError(ReaktorError):
     """ReaktorError to be thrown by class Reaktor,
     caused by the remote reaktor api.
@@ -311,11 +319,13 @@ class Reaktor(object):
         # some args might not be JSON-serializable, e.g. sets
         params = [list(arg) if isinstance(arg, set) else arg for arg in args]
 
+        # mandatory RPC ID
+        rpc_id = random_id()
         # json-encode request data
         post = jsonwrite({
             u"method": function,
             u"params": params,
-            u"id": random_id(),
+            u"id": rpc_id,
         })
 
         # url to json-interface
@@ -368,6 +378,13 @@ class Reaktor(object):
 
         # json-decode response data
         data = jsonread(data)
+
+        # check response RPC ID
+        response_id = data.get("id", "")
+        if response_id != rpc_id:
+            raise ReaktorJSONRPCError(
+                code, u"server didn't return valid RPC ID %s != %s" % (
+                    response_id, rpc_id))
 
         # raise ReaktorApiError for reaktor errors
         err = data.get("error")
