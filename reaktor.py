@@ -229,6 +229,9 @@ class ReaktorApiError(ReaktorError):
     DISCOVERY_SERVICE_ACCESS_ERROR = u"DISCOVERY_SERVICE_ACCESS_ERROR"
     ILLEGAL_ARGUMENT_ERROR         = u"ILLEGAL_ARGUMENT_ERROR"
     UNKNOWN_ENTITY_ERROR           = u"UNKNOWN_ENTITY_ERROR"
+    ILLEGAL_CALL                   = u"ILLEGAL_CALL"
+    REQUESTED_FEATURE_NOT_FOUND    = u"Requested feature not found."
+    DOCUMENT_IS_REMOVED            = u"Document is removed"
 
     def __init__(self, code = 0, message = None):
         """Currently the reaktor hasn't a consistent numeric
