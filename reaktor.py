@@ -201,7 +201,7 @@ class ReaktorError(Exception):
     def __str__(self):
         """Get string for exception.
         """
-        return "%i: %s" % (self.code, self.message)
+        return "%s: %s" % (self.code, self.message)
 
 
 class ReaktorIOError(ReaktorError):
