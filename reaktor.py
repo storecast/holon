@@ -234,7 +234,7 @@ class ReaktorApiError(ReaktorError):
         """Currently the reaktor hasn't a consistent numeric
         error code scheme. We have to rely on the messages.
         """
-        ReaktorError(code = message, message = message)
+        super(ReaktorApiError, self).__init__(code = message, message = message)
 
 
 
