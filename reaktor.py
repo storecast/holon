@@ -64,9 +64,11 @@ __status__ = "development"
 
 
 import os
+import random
 import re
 import sys
 import sha
+import string
 import time
 import types
 import logging
@@ -78,6 +80,7 @@ import pycurl
 pycurl.global_init(pycurl.GLOBAL_ALL)
 
 LOG = logging.getLogger(__name__)
+IDCHARS = string.ascii_lowercase+string.digits # for random RPC ID
 
 
 # http-header User-Agent
@@ -309,7 +312,11 @@ class Reaktor(object):
         params = [list(arg) if isinstance(arg, set) else arg for arg in args]
 
         # json-encode request data
-        post = jsonwrite({u"method": function, u"params": params})
+        post = jsonwrite({
+            u"method": function,
+            u"params": params,
+            u"id": random_id(),
+        })
 
         # url to json-interface
         url = u"%s://%s:%i%s" % (
@@ -530,3 +537,12 @@ def download_document(token, doc_id, path,
     if filename:
         filename = CONTROL_CHAR_PATTERN.sub(u"_", filename)
     return filename
+
+
+
+def random_id(length=8):
+    """Generate random id, to be used as RPC ID."""
+    return_id = ''
+    for i in range(length):
+        return_id += random.choice(IDCHARS)
+    return return_id
