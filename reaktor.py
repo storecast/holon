@@ -196,7 +196,7 @@ class ReaktorError(Exception):
         """
         Exception.__init__(self, message)
         self.code, self.message = code, message
-        LOG.error("reaktor error: %i %s" % (code, message))
+        LOG.error("reaktor error: %s %s" % (code, message))
 
     def __str__(self):
         """Get string for exception.
