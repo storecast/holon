@@ -320,12 +320,12 @@ class Reaktor(object):
         params = [list(arg) if isinstance(arg, set) else arg for arg in args]
 
         # mandatory RPC ID
-        rpc_id = random_id()
+        request_id = random_id()
         # json-encode request data
         post = jsonwrite({
             u"method": function,
             u"params": params,
-            u"id": rpc_id,
+            u"id": request_id,
         })
 
         # url to json-interface
@@ -379,19 +379,20 @@ class Reaktor(object):
         # json-decode response data
         data = jsonread(data)
 
-        # check response RPC ID
-        response_id = data.get("id", "")
-        if response_id != rpc_id:
-            raise ReaktorJSONRPCError(
-                code, u"server didn't return valid RPC ID %s != %s" % (
-                    response_id, rpc_id))
-
         # raise ReaktorApiError for reaktor errors
         err = data.get("error")
         if err:
             code = err["code"]
             err = err.get("msg", unicode(code))
             raise ReaktorApiError(code, err)
+
+        # check response RPC ID _after_ checking for ReaktorAPIError
+        # somebody didn't read http://www.jsonrpc.org/specification
+        response_id = data.get("id", "")
+        if response_id != request_id:
+            raise ReaktorJSONRPCError(
+                code, u"invalid RPC ID response %s != request %s" % (
+                    response_id, request_id))
 
         # return result as ReaktorObject('s)
         data = data["result"]
