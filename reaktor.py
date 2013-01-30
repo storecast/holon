@@ -280,6 +280,15 @@ class Reaktor(object):
             return func
 
 
+    @property
+    def __name__(self):
+        """We need a name for this object for newrelic to trace Reaktor.call.
+
+            abs(), because hash is sometimes negative which looks ugly
+        """
+        return u'%s.%s' % (self.__class__.__name__, abs(hash(self)))
+
+
     def __getattr__(self, interface_name):
         """Implements dequalification of an unknown attribute.
         """
