@@ -245,10 +245,7 @@ class ReaktorApiError(ReaktorError):
     DOCUMENT_IS_REMOVED            = u"Document is removed"
 
     def __init__(self, code = 0, message = None):
-        """Currently the reaktor hasn't a consistent numeric
-        error code scheme. We have to rely on the messages.
-        """
-        super(ReaktorApiError, self).__init__(code = message, message = message)
+        super(ReaktorApiError, self).__init__(code = code, message = message)
 
 
 
@@ -391,7 +388,7 @@ class Reaktor(object):
         # raise ReaktorApiError for reaktor errors
         err = data.get("error")
         if err:
-            code = err["code"]
+            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
             err = err.get("msg", unicode(code))
             raise ReaktorApiError(code, err)
 
