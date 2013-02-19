@@ -366,7 +366,7 @@ class Reaktor(object):
         except pycurl.error, err:
             # raise ReaktorIOError for curl errors
             LOG.error(
-                "reaktor curl error for url %s: %s %s" % (url, err[0], err[1]))
+                "reaktor curl error: %s %s" % (err[0], err[1]))
             raise ReaktorIOError(err[0], err[1])
 
         data = data.getvalue()
@@ -382,7 +382,7 @@ class Reaktor(object):
         # raise ReaktorHttpError for http response status <> 200
         if not code == 200:
             LOG.error(
-                "reaktor http error for url %s: %s %s" % (url, code, data))
+                "reaktor http error: %s %s" % (code, data))
             raise ReaktorHttpError(
                 code, u"server returned status %i: %s" % (code, data))
 
@@ -395,7 +395,7 @@ class Reaktor(object):
             code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
             err = err.get("msg", unicode(code))
             LOG.error(
-                "reaktor reaktor error for url %s: %s %s" % (url, code, err))
+                "reaktor reaktor error: %s %s" % (code, err))
             raise ReaktorApiError(code, err)
 
         # check response RPC ID _after_ checking for ReaktorAPIError
