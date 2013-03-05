@@ -107,6 +107,16 @@ REAKTOR_PATH = u"/json/rpc"
 __GETTER_REGEX__ = re.compile("get([A-Z].*)")
 
 
+# the PyCurlHttpService is the preferred one, as it is assumed to be faster
+try:
+    from services import PyCurlHttpService
+except ImportError:
+    from services import HttplibHttpService
+    HTTP_SERVICE_CLASS = HttplibHttpService
+else:
+    HTTP_SERVICE_CLASS = PyCurlHttpService
+
+
 class ReaktorObject(dict):
     """A local wrapper for datastructures returned by calls to txtr-reaktor.
 
@@ -294,12 +304,13 @@ class Reaktor(object):
         return interface
 
 
-    def __init__(self, keep_history = False):
+    def __init__(self, keep_history=False):
         """Init.
         Pass True for keep_history to keep a call history and get
         it with get_history.
         """
         self.history = [] if keep_history else None
+        self.http_service = HTTP_SERVICE_CLASS(REAKTOR_HOST, REAKTOR_PORT, REAKTOR_PATH, REAKTOR_SSL, USERAGENT, CONNECTTIMEOUT, RUNTIMEOUT, ReaktorIOError)
 
 
     def clear(self):
@@ -316,7 +327,7 @@ class Reaktor(object):
         return self.history
 
 
-    def call(self, function, args):
+    def old_call(self, function, args):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
         args: list of arguments for '<interface>.<function>'
@@ -411,6 +422,61 @@ class Reaktor(object):
         return ReaktorObject.to_reaktorobject(data)
 
 
+    def call(self, function, args):
+        """The actual remote call txtr reaktor. Internal only.
+        function: string, '<interface>.<function>' of txtr reaktor
+        args: list of arguments for '<interface>.<function>'
+        Return: ReaktorObject of list of ReaktorObject's
+        """
+        # some args might not be JSON-serializable, e.g. sets
+        params = [list(arg) if isinstance(arg, set) else arg for arg in args]
+
+        # mandatory RPC ID
+        request_id = random_id()
+        # json-encode request data
+        post = jsonwrite({
+            u"method": function,
+            u"params": params,
+            u"id": request_id,
+            })
+
+        #### pycurl specific code was here
+        response = self.http_service.call(post)
+
+        if not self.history == None:
+            self.history.append(
+                (u"%s%sjson=%s" % (self.http_service.base_url,  u"&" if "?" in self.http_service.base_url else u"?", post),
+                 response.status, int(response.time),))
+
+        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, response.data))
+
+        # raise ReaktorHttpError for http response status <> 200
+        if not response.status == 200:
+            raise ReaktorHttpError(
+                response.status, u"server returned status %i: %s" % (response.status, response.data))
+
+        # json-decode response data
+        data = jsonread(response.data)
+
+        # raise ReaktorApiError for reaktor errors
+        err = data.get("error")
+        if err:
+            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
+            err = err.get("msg", unicode(code))
+            raise ReaktorApiError(code, err)
+
+        # check response RPC ID _after_ checking for ReaktorAPIError
+        # somebody didn't read http://www.jsonrpc.org/specification
+        response_id = data.get("id", "")
+        if response_id != request_id:
+            raise ReaktorJSONRPCError(
+                response.status, u"invalid RPC ID response %s != request %s" % (
+                    response_id, request_id))
+
+        # return result as ReaktorObject('s)
+        data = data["result"]
+        return ReaktorObject.to_reaktorobject(data)
+
 
 
 
@@ -428,151 +494,11 @@ def hash_password(password):
     return hsh.hexdigest()
 
 
-
-
-# control character regex
-CONTROL_CHAR_PATTERN = re.compile(
-    u"[%s]" % re.escape(
-        u"".join([unichr(cchar) for cchar in (
-            range(0, 32) + range(127, 160))])))
-
-
-def download_document(token, doc_id, path,
-                        progress_func = None, options = None):
-    """Downloads a document.
-    Returns 'filename'-part from 'Content-disposition'-header.
-
-    A callable 'progress-function' can be passed. It will be called in
-    intervals with the download-ratio as argument:
-    0.0 to 1.0 - total bytes downloaded divided by total bytes to download.
-    To cancel the download let the progress-function return something
-    evaluating to 'True'.
-
-    A dictionary 'options' can be passed. It may contain entries
-    - 'accesstype': 'ADEPT_DRM' to fetch documents with drm
-    - 'version':    <int> for the document-version (starting with 1,
-                           default is last version)
-
-    A canceled download raises a ReaktorIOError.
-    A local write-error raises a ReaktorIOError.
-
-    token:         string, a txtr session-id
-    doc_id:        string, a txtr document-id
-    path:          string, path to local file
-    progress_func: callable, defaults to None
-    options:       dict, defaults to None
-
-    Return: string, the filename as suggested by server
-    """
-    curl = pycurl.Curl()
-    curl.setopt(pycurl.USERAGENT, USERAGENT.encode("utf-8"))
-    curl.setopt(pycurl.CONNECTTIMEOUT, CONNECTTIMEOUT)
-    curl.setopt(pycurl.SSL_VERIFYPEER, False)
-
-
-    proto = u"http"
-    if REAKTOR_SSL:
-        proto += u"s"
-
-    accesstype = u""
-    if options and not options.get("accesstype") == None:
-        if options["accesstype"] == "ADEPT_DRM":
-            accesstype = u"/metadata/com.bookpac.exporter.fulfillmenttoken"
-        else:
-            raise RuntimeError(
-                "unknown 'accesstype' in options:" +
-                options["accesstype"])
-
-    preview = u""
-    if options and not options.get("preview") == None:
-        preview = u"&deliverable=PREVIEW&format=" + options["preview"]
-
-    version = u""
-    if options and not options.get("version") == None:
-        try:
-            version = int(options["version"])
-        except ValueError:
-            raise RuntimeError(
-                "bad 'version' in options:" +
-                options["version"])
-        version = u"&v=%i" % version
-
-    url = u"%s://%s:%i/delivery/document/%s%s?token=%s%s%s" % (
-        proto, REAKTOR_HOST, REAKTOR_PORT,
-        doc_id, accesstype, token, preview, version)
-    curl.setopt(pycurl.URL, url.encode("utf-8"))
-
-
-    headers = [None]
-    filename_pattern = re.compile(
-        'Content-disposition: attachment;filename="(.*?)"')
-    def header_func(line, headers = headers):
-        """callback for curl for response-headers.
-        """
-        line = unicode(line, "latin1")
-        if headers[0] == None:
-            match = filename_pattern.search(line)
-            if match:
-                headers[0] = match.group(1)
-    curl.setopt(pycurl.HEADERFUNCTION, header_func)
-
-
-    if progress_func:
-        def cb_curl_progress_func(down_total, down_now, up_total, up_now):
-            """Call the actual progress-function.
-            To be passed to curl.
-            """
-            # passed values are in bytes, specify the actual
-            # gzipped stream, not the state of the downloaded
-            # data, so lets propagate it as ratio:
-
-            if down_total > 0:
-                ratio = (1.0 * down_now / down_total)
-            else:
-                ratio = 0.0
-            return progress_func(ratio) # return True to cancel download
-
-        curl.setopt(pycurl.NOPROGRESS, 0)
-        curl.setopt(pycurl.PROGRESSFUNCTION, cb_curl_progress_func)
-
-
-    fhl = open(path, "wb")
-    curl.setopt(pycurl.WRITEDATA, fhl)
-    curl.setopt(pycurl.ENCODING, "gzip")
-
-    try:
-        curl.perform()
-        fhl.close()
-        code = curl.getinfo(pycurl.HTTP_CODE)
-        curl.close()
-
-    except pycurl.error, err:
-        fhl.close()
-        curl.close()
-        # err[0] == 23: # write error. no space left on device?
-        # err[0] == 42: # aborted by progress function
-        raise ReaktorIOError(err[0], err[1])
-
-    except Exception:
-        fhl.close()
-        curl.close()
-        raise
-
-    if not code == 200:
-        # raise ReaktorError for http response status <> 200
-        raise ReaktorHttpError(
-            code, u"server returned status %i" % code)
-
-    filename = headers[0]
-    if filename:
-        filename = CONTROL_CHAR_PATTERN.sub(u"_", filename)
-    return filename
-
-
-
 def random_id(length=8):
     """Generate random id, to be used as RPC ID."""
     return_id = ''
     for i in range(length):
         return_id += random.choice(IDCHARS)
     return return_id
+
+
