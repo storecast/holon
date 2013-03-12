@@ -76,8 +76,6 @@ import StringIO
 from json import dumps as jsonwrite
 from json import loads as jsonread
 
-import pycurl
-pycurl.global_init(pycurl.GLOBAL_ALL)
 
 LOG = logging.getLogger(__name__)
 IDCHARS = string.ascii_lowercase+string.digits # for random RPC ID
@@ -326,102 +324,6 @@ class Reaktor(object):
         """
         return self.history
 
-
-    def old_call(self, function, args):
-        """The actual remote call txtr reaktor. Internal only.
-        function: string, '<interface>.<function>' of txtr reaktor
-        args: list of arguments for '<interface>.<function>'
-        Return: ReaktorObject of list of ReaktorObject's
-        """
-        # some args might not be JSON-serializable, e.g. sets
-        params = [list(arg) if isinstance(arg, set) else arg for arg in args]
-
-        # mandatory RPC ID
-        request_id = random_id()
-        # json-encode request data
-        post = jsonwrite({
-            u"method": function,
-            u"params": params,
-            u"id": request_id,
-        })
-
-        # url to json-interface
-        url = u"%s://%s:%i%s" % (
-            u"https" if REAKTOR_SSL else u"http",
-            REAKTOR_HOST, REAKTOR_PORT, REAKTOR_PATH)
-
-        data = StringIO.StringIO() # to collect response data
-
-        # construct curl object
-        curl = pycurl.Curl()
-        curl.setopt(pycurl.USERAGENT,      USERAGENT.encode("utf-8"))
-        curl.setopt(pycurl.TIMEOUT,        RUNTIMEOUT)
-        curl.setopt(pycurl.CONNECTTIMEOUT, CONNECTTIMEOUT)
-        curl.setopt(pycurl.SSL_VERIFYPEER, False)
-        curl.setopt(pycurl.URL,            url.encode("utf-8"))
-        curl.setopt(pycurl.POSTFIELDS,     post.encode("utf8"))
-        curl.setopt(pycurl.WRITEFUNCTION,  data.write)
-        curl.setopt(pycurl.ENCODING,       "")
-        curl.setopt(pycurl.HTTPHEADER,     [
-            "Content-type: application/octet-stream",
-            "Content-Length: %i" % len(post)])
-
-        start_time = time.time()
-
-        # the actual call
-        try:
-            curl.perform()
-            code = curl.getinfo(pycurl.HTTP_CODE)
-            curl.close()
-
-        except pycurl.error, err:
-            # raise ReaktorIOError for curl errors
-            LOG.error(
-                "reaktor curl error: %s %s" % (err[0], err[1]))
-            raise ReaktorIOError(err[0], err[1])
-
-        data = data.getvalue()
-        data = unicode(data, "utf-8")
-
-        if not self.history == None:
-            self.history.append(
-                (u"%s%sjson=%s" % (url,  u"&" if "?" in url else u"?", post),
-                code, int((time.time() - start_time) * 1000),))
-
-        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, data))
-
-        # raise ReaktorHttpError for http response status <> 200
-        if not code == 200:
-            LOG.error(
-                "reaktor http error: %s %s" % (code, data))
-            raise ReaktorHttpError(
-                code, u"server returned status %i: %s" % (code, data))
-
-        # json-decode response data
-        data = jsonread(data)
-
-        # raise ReaktorApiError for reaktor errors
-        err = data.get("error")
-        if err:
-            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
-            err = err.get("msg", unicode(code))
-            LOG.error(
-                "reaktor reaktor error: %s %s" % (code, err))
-            raise ReaktorApiError(code, err)
-
-        # check response RPC ID _after_ checking for ReaktorAPIError
-        # somebody didn't read http://www.jsonrpc.org/specification
-        response_id = data.get("id", "")
-        if response_id != request_id:
-            raise ReaktorJSONRPCError(
-                code, u"invalid RPC ID response %s != request %s" % (
-                    response_id, request_id))
-
-        # return result as ReaktorObject('s)
-        data = data["result"]
-        return ReaktorObject.to_reaktorobject(data)
-
-
     def call(self, function, args):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
@@ -440,7 +342,6 @@ class Reaktor(object):
             u"id": request_id,
             })
 
-        #### pycurl specific code was here
         response = self.http_service.call(post)
 
         if not self.history == None:

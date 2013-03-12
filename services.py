@@ -87,10 +87,11 @@ class HttplibHttpService(HttpService):
 
 
 
-# only creating PyCurlHttpService, if pycurl is also available
+# only creating PyCurlHttpService, if pycurl is also available with a version of at least 7.26
 try:
     import pycurl
-except ImportError:
+    assert pycurl.version_info()[1] >= "7.19"
+except Exception:
     pass
 else:
     pycurl.global_init(pycurl.GLOBAL_ALL)
