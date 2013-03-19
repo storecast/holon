@@ -93,8 +93,10 @@ except AttributeError:
     pass
 
 
-CONNECTTIMEOUT = 20 # connect timeout
-RUNTIMEOUT     = 40 # runtime timeout, not applied to downloads
+CONNECTTIMEOUT = 20    # connect timeout
+RUNTIMEOUT     = 40    # runtime timeout, not applied to downloads
+DO_RETRY       = False # retry Reaktor call once in case of failure
+RETRY_SLEEP    = 1.    # how many seconds to sleep before retrying (float)
 
 REAKTOR_HOST = u"txtr.com"
 REAKTOR_PORT = 443
@@ -324,6 +326,42 @@ class Reaktor(object):
         """
         return self.history
 
+
+    def _call(self, post, url):
+        """Do the actual call, including retry mechanism and logging.
+
+        :param post: string with POST parameters
+        :param url: URL posted to, used for logging
+        :return: Response
+        """
+        error_class = self.http_service.communication_error_class
+        try:
+            response = self.http_service.call(post)
+        except error_class, first_err:
+            do_raise = True
+            # hard-coding calls _not_ to retry as long as it is only one
+            if DO_RETRY and not 'WSShopMgmt.checkoutBasket' in post:
+                LOG.error('reaktor error %s, url: %s, DO RETRY' % (
+                    first_err, url))
+                # sleep and call again
+                time.sleep(RETRY_SLEEP)
+                try:
+                    response = self.http_service.call(post)
+                    do_raise = False
+                    error = None
+                except error_class, retry_err:
+                    error = retry_err
+            else:
+                error = first_err
+
+            if do_raise:
+                LOG.error('reaktor error %s, url: %s, RAISING' % (
+                    error, url))
+                raise error
+
+        return response
+
+
     def call(self, function, args):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
@@ -341,13 +379,12 @@ class Reaktor(object):
             u"params": params,
             u"id": request_id,
             })
+        url = u"%s%sjson=%s" % (self.http_service.base_url,  u"&" if "?" in self.http_service.base_url else u"?", post)
 
-        response = self.http_service.call(post)
+        response = self._call(post, url)
 
         if not self.history == None:
-            self.history.append(
-                (u"%s%sjson=%s" % (self.http_service.base_url,  u"&" if "?" in self.http_service.base_url else u"?", post),
-                 response.status, int(response.time),))
+            self.history.append((url, response.status, int(response.time),))
 
         LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, response.data))
 

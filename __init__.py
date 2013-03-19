@@ -35,6 +35,9 @@ reaktor.REAKTOR_SSL  = reaktor.REAKTOR_PORT == 443
 reaktor.REAKTOR_PATH = u"/json/rpc?v=2"
 reaktor.CONNECTTIMEOUT = getattr(settings, 'HOLON_CONNECTTIMEOUT', 20)
 reaktor.RUNTIMEOUT = getattr(settings, 'HOLON_RUNTIMEOUT', 40)
+reaktor.DO_RETRY = getattr(settings, 'HOLON_DO_RETRY', False)
+reaktor.RETRY_SLEEP = getattr(settings, 'HOLON_RETRY_SLEEP', 1.)
+
 
 LOG.info("holon: reaktor address is %s:%i%s"    %
         (reaktor.REAKTOR_HOST, reaktor.REAKTOR_PORT, reaktor.REAKTOR_PATH))
