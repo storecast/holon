@@ -28,9 +28,15 @@ REAKTOR_PER_THREAD = False
 
 LOG = logging.getLogger(__name__)
 
+# the internal settings are optional, they only apply to the json-rpc communication with the reaktor;
+# in some installations one may take advantage from skins sitting with reaktor in the same local network
+if getattr(settings, "REAKTOR_HOST_INTERNAL", "") and getattr(settings, "REAKTOR_PORT_INTERNAL", ""):
+    reaktor.REAKTOR_HOST = settings.REAKTOR_HOST_INTERNAL
+    reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT_INTERNAL)
+else:
+    reaktor.REAKTOR_HOST = settings.REAKTOR_HOST
+    reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT)
 
-reaktor.REAKTOR_HOST = settings.REAKTOR_HOST
-reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT)
 reaktor.REAKTOR_SSL  = reaktor.REAKTOR_PORT == 443
 reaktor.REAKTOR_PATH = u"/json/rpc?v=2"
 reaktor.CONNECTTIMEOUT = getattr(settings, 'HOLON_CONNECTTIMEOUT', 20)
