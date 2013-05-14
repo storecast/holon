@@ -118,7 +118,9 @@ else:
             curl.setopt(pycurl.ENCODING,       "")
             curl.setopt(pycurl.HTTPHEADER,     [
                 "Content-type: application/octet-stream",
-                "Content-Length: %i" % len(body)])
+                "Content-Length: %i" % len(body),
+                "Accept: application/json",
+            ])
 
             start_time = time.time()
 
