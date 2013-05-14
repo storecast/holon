@@ -38,7 +38,7 @@ else:
     reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT)
 
 reaktor.REAKTOR_SSL  = reaktor.REAKTOR_PORT == 443
-reaktor.REAKTOR_PATH = u"/json/rpc?v=2"
+reaktor.REAKTOR_PATH = getattr(settings, 'REAKTOR_PATH', '/api/1.36.0/rpc')
 reaktor.CONNECTTIMEOUT = getattr(settings, 'HOLON_CONNECTTIMEOUT', 20)
 reaktor.RUNTIMEOUT = getattr(settings, 'HOLON_RUNTIMEOUT', 40)
 reaktor.DO_RETRY = getattr(settings, 'HOLON_DO_RETRY', False)
