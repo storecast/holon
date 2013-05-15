@@ -411,8 +411,9 @@ class Reaktor(object):
                 response.status, u"invalid RPC ID response %s != request %s" % (
                     response_id, request_id))
 
-        # return result as ReaktorObject('s)
-        data = data["result"]
+        # return result as ReaktorObject('s) - if Reaktor doesn't violate the
+        # JSONRPC spec by not sending a result.
+        data = data.get("result", {})
         return ReaktorObject.to_reaktorobject(data)
 
 
