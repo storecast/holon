@@ -77,13 +77,12 @@ ID_TO_NAME = {
     '9f21c7da-7df8-43f7-8203-bc809aeb9c38' : 'tax_group',
     'e79289cf-4105-411d-bfb4-85bea29c667a' : 'fulfillment_token_id',
     '2d5d803f-066b-4427-81a4-244707ee194a' : 'publisher_website',
-    '2f02429a-4102-4990-a6a4-1eb96b8a2a48' : 'patron_document_status',
     '224481fa-2ce0-4194-8d98-162f516333e7' : 'fixed_document_price',
     '029437ac-03bb-469f-963a-782fadeda9fa' : 'content_source_id',
 }
 
 
-def patch(value, keep_ids = False):
+def patch(value, keep_ids=False):
     """Recursively make the keys in dicts in txtr-reaktor results descriptive.
 
     Txtr-reaktor results have some very strange keys in its dicts, its a pain
@@ -106,7 +105,7 @@ def patch(value, keep_ids = False):
                     value[dkey] = nval
                 else:
                     del value[dkey]
-            else:        
+            else:
                 value[dkey] = nval
         return value
 
