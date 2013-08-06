@@ -103,7 +103,7 @@ else:
         """
 
         def call(self, body):
-
+            # import pdb; pdb.set_trace()
             data = StringIO() # to collect response data
 
             # construct curl object
