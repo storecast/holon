@@ -107,15 +107,18 @@ REAKTOR_PATH = u"/json/rpc"
 __GETTER_REGEX__ = re.compile("get([A-Z].*)")
 
 
+# deprecated - while using pycurl we ran into some strange issues, thus using httplib service directly without checking whether pycurl is available
 # the PyCurlHttpService is the preferred one, as it is assumed to be faster
-try:
-    from services import PyCurlHttpService
-except ImportError:
-    from services import HttplibHttpService
-    HTTP_SERVICE_CLASS = HttplibHttpService
-else:
-    HTTP_SERVICE_CLASS = PyCurlHttpService
+# try:
+#     from services import PyCurlHttpService
+# except ImportError:
+#     from services import HttplibHttpService
+#     HTTP_SERVICE_CLASS = HttplibHttpService
+# else:
+#     HTTP_SERVICE_CLASS = PyCurlHttpService
 
+from services import HttplibHttpService
+HTTP_SERVICE_CLASS = HttplibHttpService
 
 class ReaktorObject(dict):
     """A local wrapper for datastructures returned by calls to txtr-reaktor.
