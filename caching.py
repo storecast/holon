@@ -2,27 +2,27 @@
 """CachingReaktor is a caching descendant from holon.reaktor.Reaktor.
 """
 import logging, threading
-import holon
+import reaktor
 
 
 LOG = logging.getLogger(__name__)
 
 
-class CachingReaktor(holon.Reaktor):
-    """A caching descendant from holon.Reaktor.
+class CachingReaktor(reaktor.Reaktor):
+    """A caching descendant from holon.reaktor.Reaktor.
     """
 
     def __init__(self, *args):
         """Overwritten __init__.
         """
-        holon.Reaktor.__init__(self, *args)
+        super(CachingReaktor, self).__init__(*args)
         self.calls, self.docs, self.presentations = {}, {}, {}
 
 
     def clear(self):
         """Overwritten clear.
         """
-        holon.Reaktor.clear(self) # clear call history
+        super(CachingReaktor, self).clear() # clear call history
         self.calls, self.docs, self.presentations = {}, {}, {} # clear cache
 
 
@@ -40,7 +40,7 @@ class CachingReaktor(holon.Reaktor):
             LOG.debug("reaktor got result for %s from cache for thread %s"
                     % (method, threading.currentThread()))
         except KeyError:
-            result = holon.Reaktor.call(self, method, args)
+            result = super(CachingReaktor, self).call(method, args)
             self.calls[key] = result
         return result
 
@@ -51,11 +51,10 @@ class CachingReaktor(holon.Reaktor):
         """
         docids2get = [docId  for docId in docids if not docId in self.docs]
         if docids2get:
-            docs = holon.Reaktor.call(
+            docs = super(CachingReaktor, self).call(
                     self, "WSDocMgmt.getDocuments", [token, docids2get])
             for doc in docs:
                 self.docs[doc.documentID] = doc
 
         docs = [self.docs[docId] for docId in docids]
         return docs
-

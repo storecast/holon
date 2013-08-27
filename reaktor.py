@@ -30,10 +30,10 @@ document = reaktor.WSDocMgmt.getDocument(token, document_id)
 """
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __license__ = "FreeBSD"
 __copyright__ = """
-Copyright 2010 txtr GmbH. All rights reserved.
+Copyright 2013 txtr GmbH. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are
 permitted provided that the following conditions are met:
@@ -72,9 +72,12 @@ import string
 import time
 import types
 import logging
-import StringIO
+import inspect
+from django.core.exceptions import ImproperlyConfigured
+from importlib import import_module
 from json import dumps as jsonwrite
 from json import loads as jsonread
+from services import HttpService
 
 
 LOG = logging.getLogger(__name__)
@@ -93,32 +96,19 @@ except AttributeError:
     pass
 
 
-CONNECTTIMEOUT = 20    # connect timeout
-RUNTIMEOUT     = 40    # runtime timeout, not applied to downloads
-DO_RETRY       = False # retry Reaktor call once in case of failure
-RETRY_SLEEP    = 1.    # how many seconds to sleep before retrying (float)
+# CONNECTTIMEOUT = 20    # connect timeout
+# RUNTIMEOUT     = 40    # runtime timeout, not applied to downloads
+# DO_RETRY       = False # retry Reaktor call once in case of failure
+# RETRY_SLEEP    = 1.    # how many seconds to sleep before retrying (float)
 
-REAKTOR_HOST = u"txtr.com"
-REAKTOR_PORT = 443
-REAKTOR_SSL  = True
-REAKTOR_PATH = u"/json/rpc"
+# REAKTOR_HOST = u"txtr.com"
+# REAKTOR_PORT = 443
+# REAKTOR_SSL  = True
+# REAKTOR_PATH = u"/json/rpc"
 
 
 __GETTER_REGEX__ = re.compile("get([A-Z].*)")
 
-
-# deprecated - while using pycurl we ran into some strange issues, thus using httplib service directly without checking whether pycurl is available
-# the PyCurlHttpService is the preferred one, as it is assumed to be faster
-# try:
-#     from services import PyCurlHttpService
-# except ImportError:
-#     from services import HttplibHttpService
-#     HTTP_SERVICE_CLASS = HttplibHttpService
-# else:
-#     HTTP_SERVICE_CLASS = PyCurlHttpService
-
-from services import HttplibHttpService
-HTTP_SERVICE_CLASS = HttplibHttpService
 
 class ReaktorObject(dict):
     """A local wrapper for datastructures returned by calls to txtr-reaktor.
@@ -150,14 +140,12 @@ class ReaktorObject(dict):
 
         return attr # attr should be a simple datatype - string, int, ...
 
-
     def __init__(self, data = None):
         """Init. Internal only.
         data: dict, defaults to None
         """
         if data:
             dict.__init__(self, data)
-
 
     def __getattr__(self, name):
         """Implements dequalification of an unknown attribute.
@@ -184,13 +172,11 @@ class ReaktorObject(dict):
         raise AttributeError(
             u"ReaktorObject object has no attribute '%s'" % name)
 
-
     def __setattr__(self, name, val):
         """Implements setting an attribute.
         Raises RuntimeError because setting attributes makes no sense here.
         """
         raise RuntimeError(u"ReaktorObject object is readonly.")
-
 
     def __delattr__(self, name):
         """Implements deleting an attribute.
@@ -199,13 +185,207 @@ class ReaktorObject(dict):
         raise RuntimeError(u"ReaktorObject object is readonly.")
 
 
+class ReaktorMeta(type):
+    """Metaclass for the reaktor object. It hijacks the kwargs on Reaktor class
+    instantiation and replaces the http service params by a shiny object of the
+    given type, built with the given params.
+    """
+    def __call__(self, *args, **kwargs):
+        http_service = kwargs.pop('http_service')
+        http_class = self.import_class_from_ns(http_service)
+
+        # build kwargs for http service
+        keys = inspect.getargspec(HttpService.__init__).args
+        http_kwargs = dict(zip(keys, [None] * len(keys)))
+        http_kwargs.pop('self')
+        for k in http_kwargs.iterkeys():
+            http_kwargs[k] = kwargs.pop(k, None)
+
+        http_service = self.build_http_service(http_class, http_kwargs)
+        try:
+            o = super(ReaktorMeta, self).__call__(http_service, *args, **kwargs)
+            return o
+        except TypeError, e:
+            raise ImproperlyConfigured(e)
+
+    def import_class_from_ns(self, ns):
+        http_ns, http_class = ('.' + ns).rsplit('.', 1)
+        abs_ns = self.__module__.rsplit('.', 1)[0] + http_ns
+        module = import_module(abs_ns)
+        return getattr(module, http_class)
+
+    def build_http_service(self, http_service_class, conf):
+        error_class = conf.get('communication_error_class')
+        if isinstance(error_class, basestring):
+            conf['communication_error_class'] = self.import_class_from_ns(error_class)
+        return http_service_class(**conf)
+
+
+class Reaktor(object):
+    """A python/json-interface to the txtr-reaktor
+    compatible with its jython/corba-interfaces.
+    For txtr-reaktor API see http://txtr.com/reaktor/api/
+
+    Attributes of Reaktor-objects dequalify into objects representing
+    txtr-reaktor interfaces of the same name. Attributes of such an
+    Interface-object in turn dequalify into a function of the interface.
+    """
+
+    class Interface(object):
+        """Internal only. See Reaktor.
+        """
+        def __init__(self, interface_name, call):
+            """Init. Internal only.
+            """
+            self._interface_name, self.call = interface_name, call
+
+
+        def __getattr__(self, function_name):
+            """Implements dequalification of an unknown attribute.
+            """
+            ifcfunc = u"%s.%s" % (self._interface_name, function_name)
+            func = lambda *args: self.call(ifcfunc, args)
+            self.__dict__[function_name] = func # cache it
+            return func
+
+
+    __metaclass__ = ReaktorMeta
+
+    @property
+    def __name__(self):
+        """We need a name for this object for newrelic to trace Reaktor.call.
+
+            abs(), because hash is sometimes negative which looks ugly
+        """
+        return u'%s.%s' % (self.__class__.__name__, abs(hash(self)))
+
+
+    def __getattr__(self, interface_name):
+        """Implements dequalification of an unknown attribute.
+        """
+        interface = Reaktor.Interface(interface_name, self.call)
+        self.__dict__[interface_name] = interface # cache it
+        return interface
+
+
+    def __init__(self, http_service, keep_history=False, do_retry=False, retry_sleep=1.):
+        """Init.
+        Pass True for keep_history to keep a call history and get
+        it with get_history.
+        """
+        self.history = [] if keep_history else None
+        self.http_service = http_service
+        self.do_retry = do_retry
+        self.retry_sleep = retry_sleep
+
+
+    def clear(self):
+        """Clear call history if any.
+        """
+        if self.history:
+            self.history = []
+
+
+    def get_history(self):
+        """Get call history if any.
+        If passed True to __init__ it returns a list else None.
+        """
+        return self.history
+
+
+    def _call(self, post, url):
+        """Do the actual call, including retry mechanism and logging.
+
+        :param post: string with POST parameters
+        :param url: URL posted to, used for logging
+        :return: Response
+        """
+        error_class = self.http_service.communication_error_class
+        try:
+            response = self.http_service.call(post)
+        except error_class, first_err:
+            do_raise = True
+            # hard-coding calls _not_ to retry as long as it is only one
+            if self.do_retry and not 'WSShopMgmt.checkoutBasket' in post:
+                LOG.error('reaktor error %s, url: %s, DO RETRY' % (
+                    first_err, url))
+                # sleep and call again
+                time.sleep(self.retry_sleep)
+                try:
+                    response = self.http_service.call(post)
+                    do_raise = False
+                    error = None
+                except error_class, retry_err:
+                    error = retry_err
+            else:
+                error = first_err
+
+            if do_raise:
+                LOG.error('reaktor error %s, url: %s, RAISING' % (
+                    error, url))
+                raise error
+
+        return response
+
+
+    def call(self, function, args):
+        """The actual remote call txtr reaktor. Internal only.
+        function: string, '<interface>.<function>' of txtr reaktor
+        args: list of arguments for '<interface>.<function>'
+        Return: ReaktorObject of list of ReaktorObject's
+        """
+        # some args might not be JSON-serializable, e.g. sets
+        params = [list(arg) if isinstance(arg, set) else arg for arg in args]
+
+        # mandatory RPC ID
+        request_id = random_id()
+        # json-encode request data
+        post = jsonwrite({u"method": function,
+                          u"params": params,
+                          u"id": request_id})
+        url = u"%s%sjson=%s" % (self.http_service.base_url,  u"&" if "?" in self.http_service.base_url else u"?", post)
+
+        response = self._call(post, url)
+
+        if not self.history == None:
+            self.history.append((url, response.status, int(response.time),))
+
+        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, response.data))
+
+        # raise ReaktorHttpError for http response status <> 200
+        if not response.status == 200:
+            raise ReaktorHttpError(
+                response.status, u"server returned status %i: %s" % (response.status, response.data))
+
+        # json-decode response data
+        data = jsonread(response.data)
+
+        # raise ReaktorApiError for reaktor errors
+        err = data.get("error")
+        if err:
+            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
+            err = err.get("msg", unicode(code))
+            raise ReaktorApiError(code, err)
+
+        # check response RPC ID _after_ checking for ReaktorAPIError
+        # somebody didn't read http://www.jsonrpc.org/specification
+        response_id = data.get("id", "")
+        if response_id != request_id:
+            raise ReaktorJSONRPCError(
+                response.status, u"invalid RPC ID response %s != request %s" % (
+                    response_id, request_id))
+
+        # return result as ReaktorObject('s) - if Reaktor doesn't violate the
+        # JSONRPC spec by not sending a result.
+        data = data.get("result", {})
+        return ReaktorObject.to_reaktorobject(data)
 
 
 class ReaktorError(Exception):
     """Base of errors to be thrown by class Reaktor.
     Meaning of self.code depends on sub classes.
     """
-    def __init__(self, code = 0, message = None):
+    def __init__(self, message=None, code=0):
         """Init.
         code: int, error-code
         message: string
@@ -215,8 +395,7 @@ class ReaktorError(Exception):
         LOG.error("reaktor error: %s %s" % (code, message))
 
     def __str__(self):
-        """Get string for exception.
-        """
+        """Get string for exception."""
         return "%s: %s" % (self.code, self.message)
 
 
@@ -257,174 +436,11 @@ class ReaktorApiError(ReaktorError):
     REQUESTED_FEATURE_NOT_FOUND    = u"Requested feature not found."
     DOCUMENT_IS_REMOVED            = u"Document is removed"
 
-    def __init__(self, code = 0, message = None):
-        super(ReaktorApiError, self).__init__(code = code, message = message)
-
-
-
-
-class Reaktor(object):
-    """A python/json-interface to the txtr-reaktor
-    compatible with its jython/corba-interfaces.
-    For txtr-reaktor API see http://txtr.com/reaktor/api/
-
-    Attributes of Reaktor-objects dequalify into objects representing
-    txtr-reaktor interfaces of the same name. Attributes of such an
-    Interface-object in turn dequalify into a function of the interface.
-    """
-    class Interface(object):
-        """Internal only. See Reaktor.
-        """
-        def __init__(self, interface_name, call):
-            """Init. Internal only.
-            """
-            self._interface_name, self.call = interface_name, call
-
-
-        def __getattr__(self, function_name):
-            """Implements dequalification of an unknown attribute.
-            """
-            ifcfunc = u"%s.%s" % (self._interface_name, function_name)
-            func = lambda *args: self.call(ifcfunc, args)
-            self.__dict__[function_name] = func # cache it
-            return func
-
-
-    @property
-    def __name__(self):
-        """We need a name for this object for newrelic to trace Reaktor.call.
-
-            abs(), because hash is sometimes negative which looks ugly
-        """
-        return u'%s.%s' % (self.__class__.__name__, abs(hash(self)))
-
-
-    def __getattr__(self, interface_name):
-        """Implements dequalification of an unknown attribute.
-        """
-        interface = Reaktor.Interface(interface_name, self.call)
-        self.__dict__[interface_name] = interface # cache it
-        return interface
-
-
-    def __init__(self, keep_history=False):
-        """Init.
-        Pass True for keep_history to keep a call history and get
-        it with get_history.
-        """
-        self.history = [] if keep_history else None
-        self.http_service = HTTP_SERVICE_CLASS(REAKTOR_HOST, REAKTOR_PORT, REAKTOR_PATH, REAKTOR_SSL, USERAGENT, CONNECTTIMEOUT, RUNTIMEOUT, ReaktorIOError)
-
-
-    def clear(self):
-        """Clear call history if any.
-        """
-        if self.history:
-            self.history = []
-
-
-    def get_history(self):
-        """Get call history if any.
-        If passed True to __init__ it returns a list else None.
-        """
-        return self.history
-
-
-    def _call(self, post, url):
-        """Do the actual call, including retry mechanism and logging.
-
-        :param post: string with POST parameters
-        :param url: URL posted to, used for logging
-        :return: Response
-        """
-        error_class = self.http_service.communication_error_class
-        try:
-            response = self.http_service.call(post)
-        except error_class, first_err:
-            do_raise = True
-            # hard-coding calls _not_ to retry as long as it is only one
-            if DO_RETRY and not 'WSShopMgmt.checkoutBasket' in post:
-                LOG.error('reaktor error %s, url: %s, DO RETRY' % (
-                    first_err, url))
-                # sleep and call again
-                time.sleep(RETRY_SLEEP)
-                try:
-                    response = self.http_service.call(post)
-                    do_raise = False
-                    error = None
-                except error_class, retry_err:
-                    error = retry_err
-            else:
-                error = first_err
-
-            if do_raise:
-                LOG.error('reaktor error %s, url: %s, RAISING' % (
-                    error, url))
-                raise error
-
-        return response
-
-
-    def call(self, function, args):
-        """The actual remote call txtr reaktor. Internal only.
-        function: string, '<interface>.<function>' of txtr reaktor
-        args: list of arguments for '<interface>.<function>'
-        Return: ReaktorObject of list of ReaktorObject's
-        """
-        # some args might not be JSON-serializable, e.g. sets
-        params = [list(arg) if isinstance(arg, set) else arg for arg in args]
-
-        # mandatory RPC ID
-        request_id = random_id()
-        # json-encode request data
-        post = jsonwrite({
-            u"method": function,
-            u"params": params,
-            u"id": request_id,
-            })
-        url = u"%s%sjson=%s" % (self.http_service.base_url,  u"&" if "?" in self.http_service.base_url else u"?", post)
-
-        response = self._call(post, url)
-
-        if not self.history == None:
-            self.history.append((url, response.status, int(response.time),))
-
-        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, response.data))
-
-        # raise ReaktorHttpError for http response status <> 200
-        if not response.status == 200:
-            raise ReaktorHttpError(
-                response.status, u"server returned status %i: %s" % (response.status, response.data))
-
-        # json-decode response data
-        data = jsonread(response.data)
-
-        # raise ReaktorApiError for reaktor errors
-        err = data.get("error")
-        if err:
-            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
-            err = err.get("msg", unicode(code))
-            raise ReaktorApiError(code, err)
-
-        # check response RPC ID _after_ checking for ReaktorAPIError
-        # somebody didn't read http://www.jsonrpc.org/specification
-        response_id = data.get("id", "")
-        if response_id != request_id:
-            raise ReaktorJSONRPCError(
-                response.status, u"invalid RPC ID response %s != request %s" % (
-                    response_id, request_id))
-
-        # return result as ReaktorObject('s) - if Reaktor doesn't violate the
-        # JSONRPC spec by not sending a result.
-        data = data.get("result", {})
-        return ReaktorObject.to_reaktorobject(data)
-
-
-
+    def __init__(self, code=0, message=None):
+        super(ReaktorApiError, self).__init__(code=code, message=message)
 
 
 # Some convenience stuff:
-
 
 def hash_password(password):
     """Get a txtr-compatible hash for passed password.
@@ -442,5 +458,3 @@ def random_id(length=8):
     for i in range(length):
         return_id += random.choice(IDCHARS)
     return return_id
-
-

@@ -3,21 +3,25 @@
 compatible with its jython/corba-interfaces.
 For txtr-reaktor API see http://txtr.com/reaktor/api/
 """
-__copyright__ = u"2012 txtr GmbH"
-__author__    = u"Sascha Dieckmann"
-__email__     = u"sascha.dieckmann@txtr.com"
+__copyright__ = "2013 txtr GmbH"
+__email__ = "info@txtr.com"
+__status__ = "development"
 
 
-import threading, logging
+from caching import CachingReaktor
 from django.conf import settings
-
-from holon.reaktor import Reaktor, \
-    ReaktorError, ReaktorHttpError, ReaktorIOError, ReaktorApiError
-from holon.caching import CachingReaktor
+from reaktor import Reaktor
+import threading, logging
+# the errors are imported for module visibility, do not clean up
+from reaktor import ReaktorApiError
+from reaktor import ReaktorError
+from reaktor import ReaktorHttpError
+from reaktor import ReaktorIOError
+from reaktor import ReaktorJSONRPCError
 
 
 # keep call history to be logged eventually
-KEEP_HISTORY = settings.KEEP_JSONRPC_HISTORY
+# KEEP_HISTORY = settings.KEEP_JSONRPC_HISTORY
 
 # cache calls and responses, call reaktor.clear() to clear history
 CACHE_CALLS = False
@@ -30,26 +34,26 @@ LOG = logging.getLogger(__name__)
 
 # the internal settings are optional, they only apply to the json-rpc communication with the reaktor;
 # in some installations one may take advantage from skins sitting with reaktor in the same local network
-if getattr(settings, "REAKTOR_HOST_INTERNAL", "") and getattr(settings, "REAKTOR_PORT_INTERNAL", ""):
-    reaktor.REAKTOR_HOST = settings.REAKTOR_HOST_INTERNAL
-    reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT_INTERNAL)
-else:
-    reaktor.REAKTOR_HOST = settings.REAKTOR_HOST
-    reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT)
+# if getattr(settings, "REAKTOR_HOST_INTERNAL", "") and getattr(settings, "REAKTOR_PORT_INTERNAL", ""):
+#     reaktor.REAKTOR_HOST = settings.REAKTOR_HOST_INTERNAL
+#     reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT_INTERNAL)
+# else:
+#     reaktor.REAKTOR_HOST = settings.REAKTOR_HOST
+#     reaktor.REAKTOR_PORT = int(settings.REAKTOR_PORT)
 
-reaktor.REAKTOR_SSL  = reaktor.REAKTOR_PORT == 443
-reaktor.REAKTOR_PATH = getattr(settings, 'REAKTOR_PATH', '/api/1.37.0/rpc')
-reaktor.CONNECTTIMEOUT = getattr(settings, 'HOLON_CONNECTTIMEOUT', 20)
-reaktor.RUNTIMEOUT = getattr(settings, 'HOLON_RUNTIMEOUT', 40)
-reaktor.DO_RETRY = getattr(settings, 'HOLON_DO_RETRY', False)
-reaktor.RETRY_SLEEP = getattr(settings, 'HOLON_RETRY_SLEEP', 1.)
+# reaktor.REAKTOR_SSL  = reaktor.REAKTOR_PORT == 443
+# reaktor.REAKTOR_PATH = getattr(settings, 'REAKTOR_PATH', '/api/1.37.0/rpc')
+# reaktor.CONNECTTIMEOUT = getattr(settings, 'HOLON_CONNECTTIMEOUT', 20)
+# reaktor.RUNTIMEOUT = getattr(settings, 'HOLON_RUNTIMEOUT', 40)
+# reaktor.DO_RETRY = getattr(settings, 'HOLON_DO_RETRY', False)
+# reaktor.RETRY_SLEEP = getattr(settings, 'HOLON_RETRY_SLEEP', 1.)
 
 
-LOG.info("holon: reaktor address is %s:%i%s"    %
-        (reaktor.REAKTOR_HOST, reaktor.REAKTOR_PORT, reaktor.REAKTOR_PATH))
-LOG.info("holon: keep reaktor history: %s"      % KEEP_HISTORY)
-LOG.info("holon: keep reaktor cache: %s"        % CACHE_CALLS)
-LOG.info("holon: reaktor object per thread: %s" % REAKTOR_PER_THREAD)
+# LOG.info("holon: reaktor address is %s:%i%s"    %
+#         (reaktor.REAKTOR_HOST, reaktor.REAKTOR_PORT, reaktor.REAKTOR_PATH))
+# LOG.info("holon: keep reaktor history: %s"      % KEEP_HISTORY)
+# LOG.info("holon: keep reaktor cache: %s"        % CACHE_CALLS)
+# LOG.info("holon: reaktor object per thread: %s" % REAKTOR_PER_THREAD)
 
 
 # the reaktor class to be used to instanciate reaktor objects
@@ -57,7 +61,8 @@ REAKTOR_CLASS = CachingReaktor if CACHE_CALLS else Reaktor
 
 
 # the singleton reaktor if not REAKTOR_PER_THREAD
-REAKTOR = None if REAKTOR_PER_THREAD else REAKTOR_CLASS(KEEP_HISTORY)
+REAKTOR = None if REAKTOR_PER_THREAD else REAKTOR_CLASS(**settings.REAKTORS['default'])
+# REAKTOR = None if REAKTOR_PER_THREAD else REAKTOR_CLASS(KEEP_HISTORY)
 
 
 # public -->
@@ -76,7 +81,8 @@ def reaktor():
             reaktor_instance = thread.reaktor
         except AttributeError:
             LOG.debug("holon: init reaktor for thread %s" % thread)
-            reaktor_instance = REAKTOR_CLASS(KEEP_HISTORY)
+            # reaktor_instance = REAKTOR_CLASS(KEEP_HISTORY)
+            reaktor_instance = REAKTOR_CLASS(**settings.REAKTORS['default'])
             thread.reaktor = reaktor_instance
 
         return reaktor_instance
