@@ -27,8 +27,7 @@ class HttpLibHttpService(HttpService):
             connection.request("POST", self.path, body)
             response = connection.getresponse()
         except (HTTPException, timeout, error), e:
-            # raise common error class
-            raise self.communication_error_class(message=u"%s failed with %s when attempting to make a call to %s with body %s" % (self.__class__.__name__, e.__class__.__name__, self.base_url, body))
+            raise self.communication_error_class(u"%s failed with %s when attempting to make a call to %s with body %s" % (self.__class__.__name__, e.__class__.__name__, self.base_url, body))
         else:
             data = unicode(response.read(), "utf-8")
         finally:
