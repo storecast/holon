@@ -72,6 +72,7 @@ import string
 import time
 import types
 import logging
+import urllib2
 import inspect
 from django.core.exceptions import ImproperlyConfigured
 from importlib import import_module
@@ -379,6 +380,21 @@ class Reaktor(object):
         # JSONRPC spec by not sending a result.
         data = data.get("result", {})
         return ReaktorObject.to_reaktorobject(data)
+
+    def get_remote_version(self):
+        reaktor_host = self.http_service.host
+        reaktor_port = '8080' if 'intern' in reaktor_host else self.http_service.port
+        try:
+            version_txt = urllib2.urlopen('http://%s:%s/reaktor/version.txt' % (reaktor_host, reaktor_port))
+            prefix = 'version: '
+            for line in version_txt:
+                if line.startswith(prefix):
+                    return line[len(prefix):].strip()
+        finally:
+            version_txt.close()
+
+    def get_api_version(self):
+        return re.sub(r'/api/(.*)/rpc', r'\1', self.http_service.path)
 
 
 class ReaktorError(Exception):
