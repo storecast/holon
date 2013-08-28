@@ -97,17 +97,6 @@ except AttributeError:
     pass
 
 
-# CONNECTTIMEOUT = 20    # connect timeout
-# RUNTIMEOUT     = 40    # runtime timeout, not applied to downloads
-# DO_RETRY       = False # retry Reaktor call once in case of failure
-# RETRY_SLEEP    = 1.    # how many seconds to sleep before retrying (float)
-
-# REAKTOR_HOST = u"txtr.com"
-# REAKTOR_PORT = 443
-# REAKTOR_SSL  = True
-# REAKTOR_PATH = u"/json/rpc"
-
-
 __GETTER_REGEX__ = re.compile("get([A-Z].*)")
 
 
