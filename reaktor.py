@@ -340,7 +340,7 @@ class Reaktor(object):
         if not self.history == None:
             self.history.append((url, response.status, int(response.time),))
 
-        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (post, response.data))
+        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
 
         # raise ReaktorHttpError for http response status <> 200
         if not response.status == 200:
