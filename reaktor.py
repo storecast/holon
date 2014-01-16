@@ -81,7 +81,7 @@ from json import loads as jsonread
 from services import HttpService
 
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # http-header User-Agent
@@ -125,12 +125,10 @@ class ReaktorObject(dict):
         attr_type = type(attr)
 
         if attr_type == types.DictType:
-            return ReaktorObject(
-    dict((key, ReaktorObject.to_reaktorobject(attr[key])) for key in attr))
+            return ReaktorObject(dict((key, ReaktorObject.to_reaktorobject(attr[key])) for key in attr))
 
         if attr_type == types.ListType:
-            return [
-    ReaktorObject.to_reaktorobject(list_member) for list_member in attr]
+            return [ReaktorObject.to_reaktorobject(list_member) for list_member in attr]
 
         return attr # attr should be a simple datatype - string, int, ...
 
@@ -238,7 +236,7 @@ class Reaktor(object):
             """Implements dequalification of an unknown attribute.
             """
             ifcfunc = u"%s.%s" % (self._interface_name, function_name)
-            func = lambda *args: self.call(ifcfunc, args)
+            func = lambda *args, **kwargs: self.call(ifcfunc, args, **kwargs)
             self.__dict__[function_name] = func # cache it
             return func
 
@@ -301,7 +299,7 @@ class Reaktor(object):
             do_raise = True
             # hard-coding calls _not_ to retry as long as it is only one
             if self.do_retry and not 'WSShopMgmt.checkoutBasket' in post:
-                LOG.error('reaktor error %s, url: %s, DO RETRY' % (
+                logger.error('reaktor error %s, url: %s, DO RETRY' % (
                     first_err, url))
                 # sleep and call again
                 time.sleep(self.retry_sleep)
@@ -315,14 +313,14 @@ class Reaktor(object):
                 error = first_err
 
             if do_raise:
-                LOG.error('reaktor error %s, url: %s, RAISING' % (
+                logger.error('reaktor error %s, url: %s, RAISING' % (
                     error, url))
                 raise error
 
         return response
 
 
-    def call(self, function, args):
+    def call(self, function, args, data_converter=None):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
         args: list of arguments for '<interface>.<function>'
@@ -344,7 +342,7 @@ class Reaktor(object):
         if not self.history == None:
             self.history.append((url, response.status, int(response.time),))
 
-        LOG.debug("\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
+        logger.debug("\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
 
         # raise ReaktorHttpError for http response status <> 200
         if not response.status == 200:
@@ -373,7 +371,9 @@ class Reaktor(object):
         # return result as ReaktorObject('s) - if Reaktor doesn't violate the
         # JSONRPC spec by not sending a result.
         data = data.get("result", {})
-        return ReaktorObject.to_reaktorobject(data)
+        if data_converter is None:
+            data_converter = ReaktorObject.to_reaktorobject
+        return data_converter(data)
 
     def get_remote_version(self):
         reaktor_host = self.http_service.host
@@ -403,7 +403,7 @@ class ReaktorError(Exception):
         """
         super(Exception, self).__init__(message)
         self.code, self.message, self.call_id = code, message, call_id
-        LOG.error("reaktor error: %s" % str(self))
+        logger.error("reaktor error: %s" % str(self))
 
     def __str__(self):
         """Get string for exception."""

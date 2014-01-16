@@ -27,12 +27,12 @@ CACHE_CALLS = False
 REAKTOR_PER_THREAD = False
 
 
-LOG = logging.getLogger(__name__)
-# LOG.info("holon: reaktor address is %s:%i%s"    %
+logger = logging.getLogger(__name__)
+# logger.info("holon: reaktor address is %s:%i%s"    %
 #         (reaktor.REAKTOR_HOST, reaktor.REAKTOR_PORT, reaktor.REAKTOR_PATH))
-# LOG.info("holon: keep reaktor history: %s"      % KEEP_HISTORY)
-# LOG.info("holon: keep reaktor cache: %s"        % CACHE_CALLS)
-# LOG.info("holon: reaktor object per thread: %s" % REAKTOR_PER_THREAD)
+# logger.info("holon: keep reaktor history: %s"      % KEEP_HISTORY)
+# logger.info("holon: keep reaktor cache: %s"        % CACHE_CALLS)
+# logger.info("holon: reaktor object per thread: %s" % REAKTOR_PER_THREAD)
 
 
 # the reaktor class to be used to instanciate reaktor objects
@@ -43,27 +43,25 @@ REAKTOR_CLASS = CachingReaktor if CACHE_CALLS else Reaktor
 REAKTOR = None if REAKTOR_PER_THREAD else REAKTOR_CLASS(**settings.REAKTORS['default'])
 
 
-# public -->
-
-def reaktor():
+def reaktor(conf='default'):
     """Get reaktor object thats singleton to the current thread.
 
     You must not save a reference to a reaktor object on module or class
     level so reaktor objects bound to a thread can be dereferenced with
-    the termination of the thread. Just always use this function, its cheap.
+    the termination of the thread. Just always use this function, it's cheap.
     """
     if REAKTOR_PER_THREAD:
 
         thread = threading.currentThread()
         try:
-            reaktor_instance = thread.reaktor
+            reaktor_instance = thread.reaktor[conf]
         except AttributeError:
-            LOG.debug("holon: init reaktor for thread %s" % thread)
+            logger.debug("holon: init reaktor for thread %s" % thread)
             reaktor_instance = REAKTOR_CLASS(**settings.REAKTORS['default'])
-            thread.reaktor = reaktor_instance
+            if not thread.reaktor:
+                thread.reaktor = {}
+            thread.reaktor[conf] = reaktor_instance
 
         return reaktor_instance
 
     return REAKTOR
-
-# <--
