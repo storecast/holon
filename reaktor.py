@@ -355,10 +355,21 @@ class Reaktor(object):
         # raise ReaktorApiError for reaktor errors
         err = data.get("error")
         if err:
-            code = err.get("reaktorErrorCode", err.get("code", "UNKNOWN_ERROR_CODE"))
+            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
             msg = err.get("msg", unicode(code))
             call_id = err.get("callId")
-            raise ReaktorApiError(code, msg, call_id)
+            if code == ReaktorApiError.AUTHENTICATION_INVALID:
+                raise ReaktorAuthError(msg, code, call_id)
+            elif code == ReaktorApiError.DISCOVERY_SERVICE_ACCESS_ERROR:
+                raise ReaktorAccessError(msg, code, call_id)
+            elif code == ReaktorApiError.ILLEGAL_ARGUMENT_ERROR:
+                raise ReaktorArgumentError(msg, code, call_id)
+            elif code == ReaktorApiError.UNKNOWN_ENTITY_ERROR:
+                raise ReaktorEntityError(msg, code, call_id)
+            elif code == ReaktorApiError.ILLEGAL_CALL:
+                raise ReaktorIllegalCallError(msg, code, call_id)
+            else:
+                raise ReaktorApiError(msg, code, call_id)
 
         # check response RPC ID _after_ checking for ReaktorAPIError
         # somebody didn't read http://www.jsonrpc.org/specification
@@ -450,6 +461,41 @@ class ReaktorApiError(ReaktorError):
     def __init__(self, code=0, message=None, call_id=None):
         super(ReaktorApiError, self).__init__(code=code, message=message,
                                               call_id=call_id)
+
+
+class ReaktorAuthError(ReaktorApiError):
+    code = ReaktorApiError.AUTHENTICATION_INVALID
+
+    def __init__(self, message=None):
+        super(ReaktorApiError, self).__init__(code=self.code, message=message)
+
+
+class ReaktorAccessError(ReaktorApiError):
+    code = ReaktorApiError.DISCOVERY_SERVICE_ACCESS_ERROR
+
+    def __init__(self, message=None):
+        super(ReaktorApiError, self).__init__(code=self.code, message=message)
+
+
+class ReaktorArgumentError(ReaktorApiError):
+    code = ReaktorApiError.ILLEGAL_ARGUMENT_ERROR
+
+    def __init__(self, message=None):
+        super(ReaktorApiError, self).__init__(code=self.code, message=message)
+
+
+class ReaktorEntityError(ReaktorApiError):
+    code = ReaktorApiError.UNKNOWN_ENTITY_ERROR
+
+    def __init__(self, message=None):
+        super(ReaktorApiError, self).__init__(code=self.code, message=message)
+
+
+class ReaktorIllegalCallError(ReaktorApiError):
+    code = ReaktorApiError.ILLEGAL_CALL
+
+    def __init__(self, message=None):
+        super(ReaktorApiError, self).__init__(code=self.code, message=message)
 
 
 # Some convenience stuff:
