@@ -82,16 +82,20 @@ from services import HttpService
 
 
 LOG = logging.getLogger(__name__)
-IDCHARS = string.ascii_lowercase+string.digits # for random RPC ID
 
 
 # http-header User-Agent
-USERAGENT = u"hreaktor/%s/%s (py%i.%i.%i)" % \
-    (__version__, sys.platform,
-     sys.version_info[0], sys.version_info[1], sys.version_info[2])
+USERAGENT = u"hreaktor/%s/%s (py%i.%i.%i)" % (
+    __version__, sys.platform,
+    sys.version_info[0],
+    sys.version_info[1],
+    sys.version_info[2]
+)
 try:
-    USERAGENT = "%s%s" % (USERAGENT[:-1],
-    ";%s-%s.%s)" % (os.uname()[0], os.uname()[2], os.uname()[4]))
+    USERAGENT = "%s%s" % (
+        USERAGENT[:-1],
+        ";%s-%s.%s)" % (os.uname()[0], os.uname()[2], os.uname()[4])
+    )
 except AttributeError:
     # no os.uname in win32
     pass
@@ -328,12 +332,12 @@ class Reaktor(object):
         params = [list(arg) if isinstance(arg, set) else arg for arg in args]
 
         # mandatory RPC ID
-        request_id = random_id()
+        request_id = id_generator()
         # json-encode request data
         post = jsonwrite({u"method": function,
                           u"params": params,
                           u"id": request_id})
-        url = u"%s%sjson=%s" % (self.http_service.base_url,  u"&" if "?" in self.http_service.base_url else u"?", post)
+        url = u"%s%sjson=%s" % (self.http_service.base_url, u"&" if "?" in self.http_service.base_url else u"?", post)
 
         response = self._call(post, url)
 
@@ -353,9 +357,10 @@ class Reaktor(object):
         # raise ReaktorApiError for reaktor errors
         err = data.get("error")
         if err:
-            code = err.get("reaktorErrorCode", err.get("code", "error code unknown"))
-            err = err.get("msg", unicode(code))
-            raise ReaktorApiError(code, err)
+            code = err.get("reaktorErrorCode", err.get("code", "UNKNOWN_ERROR_CODE"))
+            msg = err.get("msg", unicode(code))
+            call_id = err.get("callId")
+            raise ReaktorApiError(code, msg, call_id)
 
         # check response RPC ID _after_ checking for ReaktorAPIError
         # somebody didn't read http://www.jsonrpc.org/specification
@@ -390,18 +395,19 @@ class ReaktorError(Exception):
     """Base of errors to be thrown by class Reaktor.
     Meaning of self.code depends on sub classes.
     """
-    def __init__(self, message=None, code=0):
+    def __init__(self, message=None, code=0, call_id=None):
         """Init.
         code: int, error-code
         message: string
+        call_id: string, id used for reaktor debugging
         """
-        Exception.__init__(self, message)
-        self.code, self.message = code, message
-        LOG.error("reaktor error: %s %s" % (code, message))
+        super(Exception, self).__init__(message)
+        self.code, self.message, self.call_id = code, message, call_id
+        LOG.error("reaktor error: %s" % str(self))
 
     def __str__(self):
         """Get string for exception."""
-        return "%s: %s" % (self.code, self.message)
+        return "%s | callId: %s | %s" % (self.code, self.call_id, self.message)
 
 
 class ReaktorIOError(ReaktorError):
@@ -441,8 +447,9 @@ class ReaktorApiError(ReaktorError):
     REQUESTED_FEATURE_NOT_FOUND    = u"Requested feature not found."
     DOCUMENT_IS_REMOVED            = u"Document is removed"
 
-    def __init__(self, code=0, message=None):
-        super(ReaktorApiError, self).__init__(code=code, message=message)
+    def __init__(self, code=0, message=None, call_id=None):
+        super(ReaktorApiError, self).__init__(code=code, message=message,
+                                              call_id=call_id)
 
 
 # Some convenience stuff:
@@ -457,9 +464,6 @@ def hash_password(password):
     return hsh.hexdigest()
 
 
-def random_id(length=8):
+def id_generator(size=8, chars=string.ascii_lowercase + string.digits):
     """Generate random id, to be used as RPC ID."""
-    return_id = ''
-    for i in range(length):
-        return_id += random.choice(IDCHARS)
-    return return_id
+    return ''.join(random.choice(chars) for x in range(size))
