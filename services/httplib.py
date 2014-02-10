@@ -35,3 +35,7 @@ class HttpLibHttpService(HttpService):
 
         end_time = time.time()
         return Response(response.status, data, (end_time - start_time)*1000)
+
+    @property
+    def protocol(self):
+        return self.connection_class._http_vsn_str

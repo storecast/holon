@@ -337,12 +337,19 @@ class Reaktor(object):
                           u"id": request_id})
         url = u"%s%sjson=%s" % (self.http_service.base_url, u"&" if "?" in self.http_service.base_url else u"?", post)
 
-        response = self._call(post, url)
 
-        if not self.history == None:
-            self.history.append((url, response.status, int(response.time),))
+        try:
+            response = self._call(post, url)
+        finally:
+            if not self.history == None:
+                self.history.append((url, response.status, int(response.time),))
 
-        logger.debug("\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
+            logger.info('[%s] "%s" %s %s' % (
+                time.strftime('%d/%b/%Y:%H:%M:%S', time.localtime()),
+                'POST %s %s' % (function, self.http_service.protocol),
+                response.status, len(post)
+            ))
+            logger.debug("\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
 
         # raise ReaktorHttpError for http response status <> 200
         if not response.status == 200:
