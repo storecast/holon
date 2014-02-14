@@ -67,7 +67,7 @@ import os
 import random
 import re
 import sys
-import sha
+import hashlib
 import string
 import time
 import types
@@ -514,7 +514,7 @@ def hash_password(password):
     password: string
     Return: string
     """
-    hsh = sha.sha()
+    hsh = hashlib.sha1()
     hsh.update(password)
     return hsh.hexdigest()
 
