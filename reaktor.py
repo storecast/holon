@@ -344,12 +344,12 @@ class Reaktor(object):
             if not self.history == None:
                 self.history.append((url, response.status, int(response.time),))
 
-            logger.info('[%s] "%s" %s %s' % (
+            logger.info(u'[%s] "%s" %s %s' % (
                 time.strftime('%d/%b/%Y:%H:%M:%S', time.localtime()),
-                'POST %s %s' % (function, self.http_service.protocol),
+                u'POST %s %s' % (function, self.http_service.protocol),
                 response.status, len(post)
             ))
-            logger.debug("\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
+            logger.debug(u"\nRequest:\n%s\nResponse:\n%s" % (url, response.data))
 
         # raise ReaktorHttpError for http response status <> 200
         if not response.status == 200:
