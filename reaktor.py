@@ -345,7 +345,7 @@ class Reaktor(object):
                 self.history.append((url, response.status, int(response.time),))
 
             logger.info(u'[%s] "%s" %s %s' % (
-                time.strftime('%d/%b/%Y:%H:%M:%S', time.localtime()),
+                time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
                 u'POST %s %s' % (function, self.http_service.protocol),
                 response.status, len(post)
             ))
