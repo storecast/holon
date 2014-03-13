@@ -354,8 +354,7 @@ class Reaktor(object):
                 time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
                 u'POST %s %s' % (function, self.http_service.protocol),
                 resp_status, len(post)
-            ))
-            logger.debug(u"\nRequest:\n%s\nResponse:\n%s" % (url, resp_data))
+            ), extra={'params': params, 'response_data': resp_data})
 
         # raise ReaktorHttpError for http response status <> 200
         if not response.status == 200:
