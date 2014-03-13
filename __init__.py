@@ -14,6 +14,11 @@ from reaktor import Reaktor
 import threading, logging
 # the errors are imported for module visibility, do not clean up
 from reaktor import ReaktorApiError
+from reaktor import ReaktorAuthError
+from reaktor import ReaktorAccessError
+from reaktor import ReaktorArgumentError
+from reaktor import ReaktorEntityError
+from reaktor import ReaktorIllegalCallError
 from reaktor import ReaktorError
 from reaktor import ReaktorHttpError
 from reaktor import ReaktorIOError
