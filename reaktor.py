@@ -210,6 +210,8 @@ class ReaktorMeta(type):
         error_class = conf.get('communication_error_class')
         if isinstance(error_class, basestring):
             conf['communication_error_class'] = self.import_class_from_ns(error_class)
+        if not conf['user_agent']:
+            conf['user_agent'] = USERAGENT
         return http_service_class(**conf)
 
 
