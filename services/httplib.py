@@ -6,6 +6,7 @@ from httplib import HTTPException
 from httplib import HTTPSConnection
 from socket import timeout, error
 import time
+from apps.global_request.middleware import GlobalRequest # remove when everything comes through barrel
 
 class HttpLibHttpService(HttpService):
     """
@@ -19,20 +20,24 @@ class HttpLibHttpService(HttpService):
         else:
             self.connection_class = HTTPConnection
 
-    def call(self, body, request=None):
+    def call(self, body, headers=None):
         try:
-            headers = {}
-            # this check is only here because we use barrel and ye olde mapper atm
+            extra_headers = {}
+            ####### snip ##########
+            # this check is only here because we use barrel and ye olde mapper concurrently atm
             # remove this once everything comes through barrel
-            if request is None:
-                from apps.global_request.middleware import GlobalRequest
+            if headers is None:
                 request = GlobalRequest.get_request()
+                headers = {}
+                headers['Device-Info'] = request.META.get("HTTP_USER_AGENT", "")
+                headers['X-Forwarded-For'] = request.META.get("REMOTE_ADDR", "")
+            ####### snip ##########
             connection = self.connection_class(self.host, self.port, timeout=self.connect_timeout)
             start_time = time.time()
-            headers['User-Agent'] = self.user_agent.encode("utf-8")
-            headers['Device-Info'] = request.META.get("HTTP_USER_AGENT", "")
-            headers['X-Forwarded-For'] = request.META.get("REMOTE_ADDR")
-            connection.request("POST", self.path, body, headers)
+            extra_headers['User-Agent'] = self.user_agent.encode("utf-8")
+            if headers is not None:
+                extra_headers.update(headers)
+            connection.request("POST", self.path, body, extra_headers)
             response = connection.getresponse()
         except (HTTPException, timeout, error), e:
             raise self.communication_error_class(u"%s failed with %s when attempting to make a call to %s with body %s" % (self.__class__.__name__, e.__class__.__name__, self.base_url, body))

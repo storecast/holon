@@ -80,7 +80,6 @@ from json import dumps as jsonwrite
 from json import loads as jsonread
 from services import HttpService
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -287,7 +286,7 @@ class Reaktor(object):
         return self.history
 
 
-    def _call(self, post, url, request=None):
+    def _call(self, post, url, headers=None):
         """Do the actual call, including retry mechanism and logging.
 
         :param post: string with POST parameters
@@ -296,7 +295,7 @@ class Reaktor(object):
         """
         error_class = self.http_service.communication_error_class
         try:
-            response = self.http_service.call(post, request)
+            response = self.http_service.call(post, headers)
         except error_class, first_err:
             do_raise = True
             # hard-coding calls _not_ to retry as long as it is only one
@@ -306,7 +305,7 @@ class Reaktor(object):
                 # sleep and call again
                 time.sleep(self.retry_sleep)
                 try:
-                    response = self.http_service.call(post)
+                    response = self.http_service.call(post, headers)
                     do_raise = False
                     error = None
                 except error_class, retry_err:
@@ -322,7 +321,7 @@ class Reaktor(object):
         return response
 
 
-    def call(self, function, args, data_converter=None, request=None):
+    def call(self, function, args, data_converter=None, headers=None):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
         args: list of arguments for '<interface>.<function>'
@@ -342,7 +341,7 @@ class Reaktor(object):
 
         response = None
         try:
-            response = self._call(post, url, request)
+            response = self._call(post, url, headers)
         finally:
             resp_status = response.status if response else 'ERR'
             resp_time = response.time if response else -1
