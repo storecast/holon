@@ -20,11 +20,15 @@ class HttpLibHttpService(HttpService):
         else:
             self.connection_class = HTTPConnection
 
-    def call(self, body):
+    def call(self, body, headers=None):
+        if not headers:
+            headers = {}
+        if 'User-Agent' not in headers:
+            headers['User-Agent'] = self.user_agent.encode("utf-8")
         try:
             connection = self.connection_class(self.host, self.port, timeout=self.connect_timeout)
             start_time = time.time()
-            connection.request("POST", self.path, body, {'User-Agent': self.user_agent.encode("utf-8")})
+            connection.request("POST", self.path, body, headers)
             response = connection.getresponse()
         except (HTTPException, timeout, error), e:
             raise self.communication_error_class(u"%s failed with %s when attempting to make a call to %s with body %s" % (self.__class__.__name__, e.__class__.__name__, self.base_url, body))

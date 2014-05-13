@@ -10,8 +10,12 @@ __status__ = "development"
 
 from caching import CachingReaktor
 from django.conf import settings
+from django.dispatch import receiver
+from functools import partial
+from libs.own.multisite.signals import site_ready
 from reaktor import Reaktor
-import threading, logging
+import logging
+import threading
 # the errors are imported for module visibility, do not clean up
 from reaktor import ReaktorApiError
 from reaktor import ReaktorAuthError
@@ -70,3 +74,12 @@ def reaktor(conf='default'):
         return reaktor_instance
 
     return REAKTOR
+
+
+@receiver(site_ready, dispatch_uid=__file__)
+def site_found_handler(sender, **kwargs):
+    headers = {}
+    headers['Device-Info'] = sender.META.get('HTTP_USER_AGENT', '')
+    headers['X-Forwarded-For'] = sender.META.get('REMOTE_ADDR', '')
+    r = reaktor()
+    r.call = partial(r.call, headers=headers)

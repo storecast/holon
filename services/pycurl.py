@@ -16,12 +16,15 @@ class PyCurlHttpService(HttpService):
         super(PyCurlHttpService, self).__init__(*args, **kwargs)
         pycurl.global_init(pycurl.GLOBAL_ALL)
 
-    def call(self, body):
-         # to collect response data
+    def call(self, body, headers=None):
+        if not headers:
+            headers = {}
+        user_agent = headers.pop('User-Agent', None) or self.user_agent
+        # to collect response data
         data = StringIO()
         # construct curl object
         curl = pycurl.Curl()
-        curl.setopt(pycurl.USERAGENT,      self.user_agent.encode("utf-8"))
+        curl.setopt(pycurl.USERAGENT,      user_agent.encode("utf-8"))
         curl.setopt(pycurl.TIMEOUT,        self.run_timeout)
         curl.setopt(pycurl.CONNECTTIMEOUT, self.connect_timeout)
         curl.setopt(pycurl.SSL_VERIFYPEER, False)
@@ -33,7 +36,7 @@ class PyCurlHttpService(HttpService):
             "Content-type: application/octet-stream",
             "Content-Length: %i" % len(body),
             "Accept: application/json",
-        ])
+        ] + ['%s: %s' % (k, v) for k, v in headers.items()])
 
         # start_time = time.time()
 
