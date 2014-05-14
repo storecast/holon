@@ -78,8 +78,14 @@ def reaktor(conf='default'):
 
 @receiver(site_ready, dispatch_uid=__file__)
 def site_found_handler(sender, **kwargs):
-    headers = {}
-    headers['Device-Info'] = sender.META.get('HTTP_USER_AGENT', '')
-    headers['X-Forwarded-For'] = sender.META.get('REMOTE_ADDR', '')
+    """Use the `site_found` signal to configure some headers to be sent on every reaktor request.
+    This signal is fired before any django application code runs (e.g. middlewares), which
+    guaranteed that the headers are set early enough. Unlike native django signal `request_started`,
+    ours actually pass in the request instance.
+    The partial application is used to store the headers and is updated on every request.
+    """
+    headers = {'Device-Info': sender.META.get('HTTP_USER_AGENT', ''),
+               'X-Forwarded-For': sender.META.get('REMOTE_ADDR', ''), }
     r = reaktor()
-    r.call = partial(r.call, headers=headers)
+    reaktor_call = r.call.func if type(r.call) is partial else r.call
+    r.call = partial(reaktor_call, headers=headers)
