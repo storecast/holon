@@ -87,5 +87,7 @@ def site_found_handler(sender, **kwargs):
     headers = {'Device-Info': sender.META.get('HTTP_USER_AGENT', ''),
                'X-Forwarded-For': sender.META.get('REMOTE_ADDR', ''), }
     r = reaktor()
-    reaktor_call = r.call.func if type(r.call) is partial else r.call
-    r.call = partial(reaktor_call, headers=headers)
+    if type(r.call) is partial:
+        r.call.keywords['headers'] = headers
+    else:
+        r.call = partial(r.call, headers=headers)
