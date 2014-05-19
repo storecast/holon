@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
     import os, sys
     sys.path.insert(0,
-        os.path.join(os.path.dirname(__file__), os.pardir)) # pythonpath
+        os.path.join(os.path.dirname(__file__), os.pardir, 'holon')) # pythonpath
 
     import reaktor, patch
 
