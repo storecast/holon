@@ -1,35 +1,4 @@
 # -*- coding: utf-8 -*-
-"""A python/json-interface to the txtr-reaktor
-compatible with its jython/corba-interfaces.
-For txtr-reaktor API see http://txtr.com/reaktor/api/
-
-License: FreeBSD
-Support: support@txtr.com
-
-Requirements:
-- python >= 2.4
-- pycurl
-- json:
-   * with python 2.6 buildin json will be used
-   * with python < 2.6 simplejson if available:
-      http://code.google.com/p/simplejson , MIT License
-   * as last fallback modified json implementation from Patrick D. Logan:
-      http://sourceforge.net/projects/json-py , LGPL, in repository
-
-Install:
-- Install python >= 2.4
-- Install pycurl
-- With python < 2.6 install simplejson
-
-Example:
-...
-from reaktor import reaktor
-token = reaktor.WSAuth.authenticateAnonymous().token
-document = reaktor.WSDocMgmt.getDocument(token, document_id)
-...
-"""
-
-
 import os
 import random
 import re
