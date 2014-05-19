@@ -10,7 +10,6 @@ import types
 import logging
 import urllib2
 import inspect
-from django.core.exceptions import ImproperlyConfigured
 from importlib import import_module
 from json import dumps as jsonwrite
 from json import loads as jsonread
@@ -134,8 +133,8 @@ class ReaktorMeta(type):
         try:
             o = super(ReaktorMeta, self).__call__(http_service, *args, **kwargs)
             return o
-        except TypeError, e:
-            raise ImproperlyConfigured(e)
+        except TypeError as e:
+            raise RuntimeError(e)
 
     def import_class_from_ns(self, ns):
         http_ns, http_class = ('.' + ns).rsplit('.', 1)
