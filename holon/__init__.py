@@ -2,11 +2,12 @@
 """A python/json-interface to the txtr-reaktor
 compatible with its jython/corba-interfaces.
 For txtr-reaktor API see http://txtr.com/reaktor/api/
-"""
-__copyright__ = "2013 txtr GmbH"
-__email__ = "info@txtr.com"
-__status__ = "development"
 
+:copyright: (c) 2014 by txtr GmbH.
+:license: BSD, see LICENSE for more details.
+"""
+
+__version__ = "0.0.2"
 
 from caching import CachingReaktor
 from django.conf import settings
