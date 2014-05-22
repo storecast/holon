@@ -4,11 +4,11 @@ For txtr-reaktor API see http://txtr.com/reaktor/api/
 """
 
 from setuptools import setup, find_packages
-
+from holon import __version__
 
 setup(
     name='holon',
-    version='0.0.2',
+    version=__version__,
     description='python interface to reaktor API',
     long_description=__doc__,
     license='BSD',
