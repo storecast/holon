@@ -6,7 +6,6 @@ import sys
 import hashlib
 import string
 import time
-import types
 import logging
 import urllib2
 import inspect
@@ -58,17 +57,15 @@ class ReaktorObject(dict):
         """Recursive translation of dicts|lists into [lists of] ReaktorObject's
         Internal only.
         """
-        attr_type = type(attr)
-
-        if attr_type == types.DictType:
+        if isinstance(attr, dict):
             return ReaktorObject(dict((key, ReaktorObject.to_reaktorobject(attr[key])) for key in attr))
 
-        if attr_type == types.ListType:
+        if isinstance(attr, list):
             return [ReaktorObject.to_reaktorobject(list_member) for list_member in attr]
 
-        return attr # attr should be a simple datatype - string, int, ...
+        return attr  # attr should be a simple datatype - string, int, ...
 
-    def __init__(self, data = None):
+    def __init__(self, data=None):
         """Init. Internal only.
         data: dict, defaults to None
         """
@@ -169,34 +166,29 @@ class Reaktor(object):
             """
             self._interface_name, self.call = interface_name, call
 
-
         def __getattr__(self, function_name):
             """Implements dequalification of an unknown attribute.
             """
             ifcfunc = u"%s.%s" % (self._interface_name, function_name)
             func = lambda *args, **kwargs: self.call(ifcfunc, args, **kwargs)
-            self.__dict__[function_name] = func # cache it
+            self.__dict__[function_name] = func  # cache it
             return func
-
 
     __metaclass__ = ReaktorMeta
 
     @property
     def __name__(self):
         """We need a name for this object for newrelic to trace Reaktor.call.
-
-            abs(), because hash is sometimes negative which looks ugly
+        abs(), because hash is sometimes negative which looks ugly
         """
         return u'%s.%s' % (self.__class__.__name__, abs(hash(self)))
-
 
     def __getattr__(self, interface_name):
         """Implements dequalification of an unknown attribute.
         """
         interface = Reaktor.Interface(interface_name, self.call)
-        self.__dict__[interface_name] = interface # cache it
+        self.__dict__[interface_name] = interface  # cache it
         return interface
-
 
     def __init__(self, http_service, keep_history=False):
         """Init.
@@ -206,20 +198,17 @@ class Reaktor(object):
         self.history = [] if keep_history else None
         self.http_service = http_service
 
-
     def clear(self):
         """Clear call history if any.
         """
         if self.history:
             self.history = []
 
-
     def get_history(self):
         """Get call history if any.
         If passed True to __init__ it returns a list else None.
         """
         return self.history
-
 
     def call(self, function, args, data_converter=None, headers=None):
         """The actual remote call txtr reaktor. Internal only.
@@ -244,15 +233,19 @@ class Reaktor(object):
             resp_status = response.status if response else 'ERR'
             resp_time = response.time if response else -1
             resp_data = response.data if response else None
-            logger.info(u'[%s] "%s" %s %s' % (
-                time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-                u'POST %s %s %s' % (function, params, self.http_service.protocol),
-                resp_status, len(post)
-            ))
+
+            summary = dict(
+                time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+                request=u'POST %s %s %s' % (function, params, self.http_service.protocol),
+                status=resp_status,
+                length=len(post),
+                duration=resp_time
+            )
 
             if self.history is not None:
-                self.history.append((resp_status, int(resp_time), ))
+                self.history.append(summary)
 
+            logger.info(u'[{time}] "{request}" {status} {length} {duration}'.format(**summary))
             logger.debug(resp_data)
 
         # raise ReaktorHttpError for http response status <> 200
@@ -361,13 +354,13 @@ class ReaktorApiError(ReaktorError):
     caused by the remote reaktor api.
     self.code here is a reaktor error message.
     """
-    AUTHENTICATION_INVALID         = u"AUTHENTICATION_INVALID"
+    AUTHENTICATION_INVALID = u"AUTHENTICATION_INVALID"
     DISCOVERY_SERVICE_ACCESS_ERROR = u"DISCOVERY_SERVICE_ACCESS_ERROR"
-    ILLEGAL_ARGUMENT_ERROR         = u"ILLEGAL_ARGUMENT_ERROR"
-    UNKNOWN_ENTITY_ERROR           = u"UNKNOWN_ENTITY_ERROR"
-    ILLEGAL_CALL                   = u"ILLEGAL_CALL"
-    REQUESTED_FEATURE_NOT_FOUND    = u"Requested feature not found."
-    DOCUMENT_IS_REMOVED            = u"Document is removed"
+    ILLEGAL_ARGUMENT_ERROR = u"ILLEGAL_ARGUMENT_ERROR"
+    UNKNOWN_ENTITY_ERROR = u"UNKNOWN_ENTITY_ERROR"
+    ILLEGAL_CALL = u"ILLEGAL_CALL"
+    REQUESTED_FEATURE_NOT_FOUND = u"Requested feature not found."
+    DOCUMENT_IS_REMOVED = u"Document is removed"
 
 
 class ReaktorAuthError(ReaktorApiError):
