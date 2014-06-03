@@ -198,15 +198,13 @@ class Reaktor(object):
         return interface
 
 
-    def __init__(self, http_service, keep_history=False, do_retry=False, retry_sleep=1.):
+    def __init__(self, http_service, keep_history=False):
         """Init.
         Pass True for keep_history to keep a call history and get
         it with get_history.
         """
         self.history = [] if keep_history else None
         self.http_service = http_service
-        self.do_retry = do_retry
-        self.retry_sleep = retry_sleep
 
 
     def clear(self):
@@ -221,41 +219,6 @@ class Reaktor(object):
         If passed True to __init__ it returns a list else None.
         """
         return self.history
-
-
-    def _call(self, post, url, headers):
-        """Do the actual call, including retry mechanism and logging.
-
-        :param post: string with POST parameters
-        :param url: URL posted to, used for logging
-        :return: Response
-        """
-        error_class = self.http_service.communication_error_class
-        try:
-            response = self.http_service.call(post, headers)
-        except error_class, first_err:
-            do_raise = True
-            # hard-coding calls _not_ to retry as long as it is only one
-            if self.do_retry and not 'WSShopMgmt.checkoutBasket' in post:
-                logger.error('reaktor error %s, url: %s, DO RETRY' % (
-                    first_err, url))
-                # sleep and call again
-                time.sleep(self.retry_sleep)
-                try:
-                    response = self.http_service.call(post, headers)
-                    do_raise = False
-                    error = None
-                except error_class, retry_err:
-                    error = retry_err
-            else:
-                error = first_err
-
-            if do_raise:
-                logger.error('reaktor error %s, url: %s, RAISING' % (
-                    error, url))
-                raise error
-
-        return response
 
 
     def call(self, function, args, data_converter=None, headers=None):
@@ -273,24 +236,23 @@ class Reaktor(object):
         post = jsonwrite({u"method": function,
                           u"params": params,
                           u"id": request_id})
-        url = u"%s%sjson=%s" % (self.http_service.base_url, u"&" if "?" in self.http_service.base_url else u"?", post)
-
 
         response = None
         try:
-            response = self._call(post, url, headers or {})
+            response = self.http_service.call(post, headers or {})
         finally:
             resp_status = response.status if response else 'ERR'
             resp_time = response.time if response else -1
             resp_data = response.data if response else None
-            if not self.history == None:
-                self.history.append((url, resp_status, int(resp_time),))
-
             logger.info(u'[%s] "%s" %s %s' % (
                 time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
                 u'POST %s %s %s' % (function, params, self.http_service.protocol),
                 resp_status, len(post)
             ))
+
+            if self.history is not None:
+                self.history.append((resp_status, int(resp_time), ))
+
             logger.debug(resp_data)
 
         # raise ReaktorHttpError for http response status <> 200
