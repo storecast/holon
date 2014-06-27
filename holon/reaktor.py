@@ -239,13 +239,14 @@ class Reaktor(object):
                 request=u'POST %s %s %s' % (function, params, self.http_service.protocol),
                 status=resp_status,
                 length=len(post),
-                duration=resp_time
+                duration=resp_time,
+                request_id=request_id
             )
 
             if self.history is not None:
                 self.history.append(summary)
 
-            logger.info(u'[{time}] "{request}" {status} {length} {duration}'.format(**summary))
+            logger.info(u'[{time}] "{request}" | {status} | {length} | {duration:.3f}ms | id: {request_id}'.format(**summary))
             if headers:
                 logger.debug(headers)
             if resp_data:
