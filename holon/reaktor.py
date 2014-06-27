@@ -246,8 +246,10 @@ class Reaktor(object):
                 self.history.append(summary)
 
             logger.info(u'[{time}] "{request}" {status} {length} {duration}'.format(**summary))
-            logger.debug(headers)
-            logger.debug(resp_data)
+            if headers:
+                logger.debug(headers)
+            if resp_data:
+                logger.debug(resp_data)
 
         # raise ReaktorHttpError for http response status <> 200
         if not response.status == 200:
