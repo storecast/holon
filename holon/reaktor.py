@@ -235,20 +235,18 @@ class Reaktor(object):
             resp_data = response.data if response else None
 
             summary = dict(
-                time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
                 request=u'POST %s %s %s' % (function, params, self.http_service.protocol),
                 status=resp_status,
                 length=len(post),
                 duration=resp_time,
-                request_id=request_id
+                request_id=request_id,
+                headers=headers
             )
 
             if self.history is not None:
                 self.history.append(summary)
 
-            logger.info(u'[{time}] "{request}" | {status} | {length} | {duration:.3f}ms | id: {request_id}'.format(**summary))
-            if headers:
-                logger.debug(headers)
+            logger.info(summary['request'], extra=summary)
             if resp_data:
                 logger.debug(resp_data)
 
