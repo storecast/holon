@@ -161,16 +161,16 @@ class Reaktor(object):
     class Interface(object):
         """Internal only. See Reaktor.
         """
-        def __init__(self, interface_name, call):
+        def __init__(self, interface_name, endpoint):
             """Init. Internal only.
             """
-            self._interface_name, self.call = interface_name, call
+            self._interface_name, self.endpoint = interface_name, endpoint
 
         def __getattr__(self, function_name):
             """Implements dequalification of an unknown attribute.
             """
             ifcfunc = u"%s.%s" % (self._interface_name, function_name)
-            func = lambda *args, **kwargs: self.call(ifcfunc, args, **kwargs)
+            func = lambda *args, **kwargs: self.endpoint.call(ifcfunc, args, **kwargs)
             self.__dict__[function_name] = func  # cache it
             return func
 
@@ -186,7 +186,7 @@ class Reaktor(object):
     def __getattr__(self, interface_name):
         """Implements dequalification of an unknown attribute.
         """
-        interface = Reaktor.Interface(interface_name, self.call)
+        interface = Reaktor.Interface(interface_name, self)
         self.__dict__[interface_name] = interface  # cache it
         return interface
 
