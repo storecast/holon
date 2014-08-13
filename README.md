@@ -20,6 +20,12 @@ token = reaktor.WSAuth.authenticateAnonymous().token
 document = reaktor.WSDocMgmt.getDocument(token, document_id)
 ```
 
+## Tests
+`mock` is needed in order to run the tests. After installing it:
+```
+python -m unittest holon.tests
+```
+
 ## License
 
 BSD, see `LICENSE` for more details.
