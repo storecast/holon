@@ -115,7 +115,8 @@ class ReaktorMeta(type):
     instantiation and replaces the http service params by a shiny object of the
     given type, built with the given params.
     """
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kw):
+        kwargs = dict(**kw)
         http_service = kwargs.pop('http_service')
         http_class = self.import_class_from_ns(http_service)
 
@@ -123,7 +124,7 @@ class ReaktorMeta(type):
         keys = inspect.getargspec(HttpService.__init__).args
         http_kwargs = dict(zip(keys, [None] * len(keys)))
         http_kwargs.pop('self')
-        for k in http_kwargs.iterkeys():
+        for k in http_kwargs:
             http_kwargs[k] = kwargs.pop(k, None)
 
         http_service = self.build_http_service(http_class, http_kwargs)
