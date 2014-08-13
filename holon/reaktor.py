@@ -5,7 +5,6 @@ import re
 import sys
 import hashlib
 import string
-import time
 import logging
 import urllib2
 import inspect
