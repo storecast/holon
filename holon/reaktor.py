@@ -16,6 +16,8 @@ from . import __version__
 
 
 logger = logging.getLogger(__name__)
+# provide a separate logger for easing configuration
+logger_request = logging.getLogger('holon.request')
 
 
 # http-header User-Agent
@@ -246,7 +248,7 @@ class Reaktor(object):
             if self.history is not None:
                 self.history.append(summary)
 
-            logger.info(summary['request'], extra=summary)
+            logger_request.info(summary['request'], extra=summary)
             if resp_data:
                 logger.debug(resp_data)
 
