@@ -5,7 +5,6 @@ import re
 import sys
 import hashlib
 import string
-import time
 import logging
 import urllib2
 import inspect
@@ -115,7 +114,8 @@ class ReaktorMeta(type):
     instantiation and replaces the http service params by a shiny object of the
     given type, built with the given params.
     """
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kw):
+        kwargs = dict(**kw)
         http_service = kwargs.pop('http_service')
         http_class = self.import_class_from_ns(http_service)
 
@@ -123,7 +123,7 @@ class ReaktorMeta(type):
         keys = inspect.getargspec(HttpService.__init__).args
         http_kwargs = dict(zip(keys, [None] * len(keys)))
         http_kwargs.pop('self')
-        for k in http_kwargs.iterkeys():
+        for k in http_kwargs:
             http_kwargs[k] = kwargs.pop(k, None)
 
         http_service = self.build_http_service(http_class, http_kwargs)
@@ -161,16 +161,16 @@ class Reaktor(object):
     class Interface(object):
         """Internal only. See Reaktor.
         """
-        def __init__(self, interface_name, call):
+        def __init__(self, interface_name, endpoint):
             """Init. Internal only.
             """
-            self._interface_name, self.call = interface_name, call
+            self._interface_name, self.endpoint = interface_name, endpoint
 
         def __getattr__(self, function_name):
             """Implements dequalification of an unknown attribute.
             """
             ifcfunc = u"%s.%s" % (self._interface_name, function_name)
-            func = lambda *args, **kwargs: self.call(ifcfunc, args, **kwargs)
+            func = lambda *args, **kwargs: self.endpoint.call(ifcfunc, args, **kwargs)
             self.__dict__[function_name] = func  # cache it
             return func
 
@@ -186,7 +186,7 @@ class Reaktor(object):
     def __getattr__(self, interface_name):
         """Implements dequalification of an unknown attribute.
         """
-        interface = Reaktor.Interface(interface_name, self.call)
+        interface = Reaktor.Interface(interface_name, self)
         self.__dict__[interface_name] = interface  # cache it
         return interface
 
@@ -235,20 +235,18 @@ class Reaktor(object):
             resp_data = response.data if response else None
 
             summary = dict(
-                time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
                 request=u'POST %s %s %s' % (function, params, self.http_service.protocol),
                 status=resp_status,
                 length=len(post),
                 duration=resp_time,
-                request_id=request_id
+                request_id=request_id,
+                headers=headers
             )
 
             if self.history is not None:
                 self.history.append(summary)
 
-            logger.info(u'[{time}] "{request}" | {status} | {length} | {duration:.3f}ms | id: {request_id}'.format(**summary))
-            if headers:
-                logger.debug(headers)
+            logger.info(summary['request'], extra=summary)
             if resp_data:
                 logger.debug(resp_data)
 
