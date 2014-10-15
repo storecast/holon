@@ -298,7 +298,7 @@ class Reaktor(object):
         reaktor_host = self.http_service.host
         reaktor_port = '8080' if 'intern' in reaktor_host else self.http_service.port
         try:
-            version_txt = urllib2.urlopen('http://%s:%s/reaktor/version.txt' % (reaktor_host, reaktor_port))
+            version_txt = urllib2.urlopen('http://%s:%s/api/version.txt' % (reaktor_host, reaktor_port))
             prefix = 'version: '
             for line in version_txt:
                 if line.startswith(prefix):
