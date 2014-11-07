@@ -303,8 +303,13 @@ class Reaktor(object):
             for line in version_txt:
                 if line.startswith(prefix):
                     return line[len(prefix):].strip()
+        except urllib2.HTTPError as e:
+            return e.msg
         finally:
-            version_txt.close()
+            try:
+                version_txt.close()
+            except NameError:
+                pass
 
     def get_api_version(self):
         return re.sub(r'/api/(.*)/rpc', r'\1', self.http_service.path)
