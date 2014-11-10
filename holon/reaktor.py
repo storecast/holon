@@ -206,12 +206,6 @@ class Reaktor(object):
         if self.history:
             self.history = []
 
-    def get_history(self):
-        """Get call history if any.
-        If passed True to __init__ it returns a list else None.
-        """
-        return self.history
-
     def call(self, function, args, data_converter=None, headers=None):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
