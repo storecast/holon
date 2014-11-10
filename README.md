@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/txtr/holon.svg?branch=master)](https://travis-ci.org/txtr/holon)
+[![Coverage Status](https://coveralls.io/repos/txtr/holon/badge.png?branch=master)](https://coveralls.io/r/txtr/holon?branch=master)
+
 # [txtr](http://txtr.com/) library for communicating with txtr reaktor [API](http://txtr.com/reaktor/api/).
 
 This library provides an interface to reaktor API.
