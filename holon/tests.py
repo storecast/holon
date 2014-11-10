@@ -111,6 +111,63 @@ class ReaktorTestCase(unittest.TestCase):
         """Custom reaktor data converter."""
         custom_converter = Mock()
         with patch_json(self.reaktor, '{"prop":"value"}'):
-            r = self.reaktor.call('Interface.Method', [],
+            self.reaktor.call('Interface.Method', [],
                                   data_converter=custom_converter)
             custom_converter.assert_called_with({u'prop': u'value'})
+
+    @patch('holon.reaktor.id_generator', return_value='')
+    def test_reaktor_call_multiple_results(self, _):
+        """Multiple results are converted to a list of objects."""
+        with patch_json(self.reaktor, '[{"o":1}, {"o":2}, {"o":3}]'):
+            r = self.reaktor.call('Interface.Method', [])
+            self.assertIsInstance(r, list)
+            self.assertTrue(len(r), 3)
+
+    def test_name(self):
+        """Reaktor instances have specific names."""
+        self.assertEqual(self.reaktor.__name__, 'Reaktor.%s' % abs(hash(self.reaktor)))
+
+    @patch('holon.reaktor.id_generator', return_value='')
+    def test_history(self, _):
+        """Reaktor history keep tracks of calls and is resetable."""
+        with patch_json(self.reaktor, '[]'):
+            self.reaktor.call('Interface.Method', [])
+        self.assertEqual(len(self.reaktor.history), 1)
+        self.reaktor.clear()
+        self.assertEqual(self.reaktor.history, [])
+
+
+class ReaktorObjectTestCase(unittest.TestCase):
+    def setUp(self):
+        self.reaktor = Reaktor(**reaktor_config)
+
+    @patch('holon.reaktor.id_generator', return_value='')
+    def test_getter(self, _):
+        """Reaktor object implements automatic getters."""
+        with patch_json(self.reaktor, '{"something":42}'):
+            r = self.reaktor.call('Interface.Method', [])
+            self.assertTrue(callable(r.getSomething))
+            self.assertEqual(r.getSomething(), 42)
+
+    @patch('holon.reaktor.id_generator', return_value='')
+    def test_enum(self, _):
+        """Reaktor object implements automatic enum getters (specific to the java backend)."""
+        with patch_json(self.reaktor, '{"name":["e1", "e2", "e3"]}'):
+            r = self.reaktor.call('Interface.getMeAJavaEnum', [])
+            self.assertTrue(callable(r.name))
+            self.assertEqual(r.name(), ["e1", "e2", "e3"])
+
+    @patch('holon.reaktor.id_generator', return_value='')
+    def test_attribute_error(self, _):
+        """Reaktor object raises attribute error for element that do not exist in the JSON payload."""
+        with patch_json(self.reaktor, '{"prop":"value"}'):
+            r = self.reaktor.call('Interface.Whatever', [])
+            self.assertRaises(AttributeError, lambda: r.wrong_prop)
+
+    def test_readonly(self):
+        """Reaktor object are readonly."""
+        o = ReaktorObject({'prop': 'val'})
+        with self.assertRaises(RuntimeError):
+            o.attr = 'val'
+        with self.assertRaises(RuntimeError):
+            del o.prop
