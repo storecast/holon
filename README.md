@@ -7,7 +7,7 @@ This library provides an interface to reaktor API.
 
 ## Installation
 
-Nothing to fancy - clone the repo and run
+Nothing fancy - clone the repo and run
 ```
 python setup.py install
 ```
