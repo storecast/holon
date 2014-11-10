@@ -15,7 +15,7 @@ setup(
     author='txtr web team',
     author_email='web-dev@txtr.com',
     url='https://github.com/txtr/holon/',
-    packages=find_packages(exclude=['examples',]),
+    packages=find_packages(exclude=['examples', ]),
     platforms='any',
     install_requires=['pycurl>=7.19.3.1'],
 )

@@ -1,0 +1,20 @@
+language: python
+python:
+  - "2.7"
+install:
+  # installing the `holon` package - the dependencies will be installed
+  - python setup.py install
+  # `coveralls` to run tests with coverage
+  - pip install coveralls mock
+script:
+  # all the tests
+  - coverage run --source=holon -m unittest discover holon.tests
+after_success:
+  - coveralls
+notifications:
+  # send the notification about the build results
+  email:
+    recipients:
+      - web-dev@txtr.com
+    on_success: change
+    on_failure: change
