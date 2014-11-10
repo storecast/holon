@@ -10,7 +10,6 @@ For txtr-reaktor API see http://txtr.com/reaktor/api/
 __version__ = "0.0.8"
 
 # these are imported for module visibility, do not clean up
-from caching import CachingReaktor
 from reaktor import Reaktor
 from reaktor import ReaktorApiError
 from reaktor import ReaktorAuthError

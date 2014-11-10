@@ -46,3 +46,7 @@ class HttpService(object):
         if not hasattr(self, "_base_url_cache"):
             self._base_url_cache = u"%s://%s:%i%s" % (u"https" if self.ssl else u"http", self.host, self.port, self.path)
         return self._base_url_cache
+
+    @property
+    def protocol(self):
+        raise NotImplementedError()

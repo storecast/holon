@@ -11,7 +11,7 @@ import inspect
 from importlib import import_module
 from json import dumps as jsonwrite
 from json import loads as jsonread
-from .services import HttpService
+from . import services
 from . import __version__
 
 
@@ -122,7 +122,7 @@ class ReaktorMeta(type):
         http_class = self.import_class_from_ns(http_service)
 
         # build kwargs for http service
-        keys = inspect.getargspec(HttpService.__init__).args
+        keys = inspect.getargspec(services.HttpService.__init__).args
         http_kwargs = dict(zip(keys, [None] * len(keys)))
         http_kwargs.pop('self')
         for k in http_kwargs:
@@ -215,8 +215,11 @@ class Reaktor(object):
     def call(self, function, args, data_converter=None, headers=None):
         """The actual remote call txtr reaktor. Internal only.
         function: string, '<interface>.<function>' of txtr reaktor
-        args: list of arguments for '<interface>.<function>'
-        Return: ReaktorObject of list of ReaktorObject's
+        args: List of arguments for '<interface>.<function>'
+        data_converter: The callable used to cast the JSON structure a python
+                        instance (defaults to `ReaktorObject.to_reaktorobject`)
+        headers: Additional headers to pass in
+        return: Instance(s) built using the provided `data_converter`
         """
         # some args might not be JSON-serializable, e.g. sets
         params = [list(arg) if isinstance(arg, set) else arg for arg in args]
@@ -237,7 +240,10 @@ class Reaktor(object):
             resp_data = response.data if response else None
 
             summary = dict(
-                request=u'POST %s %s %s' % (function, params, self.http_service.protocol),
+                request=u'POST {fn} {params} {protocol}'.format(
+                    fn=function, params=params,
+                    protocol=self.http_service.protocol
+                ),
                 status=resp_status,
                 length=len(post),
                 duration=resp_time,
