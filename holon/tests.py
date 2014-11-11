@@ -18,13 +18,13 @@ class ServiceMock(HttpService):
 
 
 @contextmanager
-def patch_json(reaktor, res='null', err='null', id=''):
+def patch_json(reaktor, res='null', err='null', id='', status=200):
     from services import Response
     resp = u"""{{"error":{error},"result":{result},"id":"{call_id}"}}"""
     resp = resp.format(error=err, result=res, call_id=id)
     call_orig = reaktor.http_service.call
     try:
-        reaktor.http_service.call = Mock(return_value=Response(200, resp, 0))
+        reaktor.http_service.call = Mock(return_value=Response(status, resp, 0))
         yield reaktor.http_service.call
     finally:
         reaktor.http_service.call = call_orig
@@ -224,6 +224,12 @@ class ReaktorErrorTestCase(unittest.TestCase):
     def test_json_rpc_error(self, _):
         with patch_json(self.reaktor, '{}', id='gonna break'):
             with self.assertRaises(ReaktorJSONRPCError) as e:
+                self.reaktor.call('Interface.Method', [])
+                self.assertIsInstance(e, ReaktorError)
+
+    def test_http_error(self, _):
+        with patch_json(self.reaktor, '{}', status=500):
+            with self.assertRaises(ReaktorHttpError) as e:
                 self.reaktor.call('Interface.Method', [])
                 self.assertIsInstance(e, ReaktorError)
 
