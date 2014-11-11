@@ -1,8 +1,8 @@
 from contextlib import contextmanager
-from httplib import HTTPException
+from httplib import HTTPConnection, HTTPSConnection, HTTPException
 from mock import Mock, patch
 from reaktor import *
-from services import HttpService, Response
+from services import HttpService
 from services.httplib import HttpLibHttpService
 from services.pycurl import PyCurlHttpService
 import pycurl
@@ -287,18 +287,34 @@ class HttpServiceTestCase(unittest.TestCase):
 
 
 class HttpLibHttpServiceTestCase(unittest.TestCase):
-    @patch('holon.services.httplib.HTTPConnection')
-    def test_protocol(self, httpconn):
+    def test_protocol(self):
         s = HttpLibHttpService('host', 42, 'path')
-        self.assertEqual(s.protocol, httpconn._http_vsn_str)
+        self.assertEqual(s.protocol, HTTPConnection._http_vsn_str)
+        self.assertIsInstance(s.get_transport(), HTTPConnection)
 
-    @patch('httplib.HTTPConnection')
-    @patch('holon.services.httplib.HttpLibHttpService.get_transport',
-           side_effect=HTTPException)
-    def test_call_helper_timeout(self, curl, _):
-        # curl.getinfo = Mock(side_effect=pycurl.error)
+    def test_protocol_https(self):
+        s = HttpLibHttpService('host', 443, 'path')
+        self.assertEqual(s.protocol, HTTPSConnection._http_vsn_str)
+        self.assertIsInstance(s.get_transport(), HTTPSConnection)
+
+    @patch('holon.services.httplib.HttpLibHttpService.get_transport')
+    def test_call_helper(self, transport):
+        getresponse_mock = Mock()
+        transport.return_value = getresponse_mock
+        read_mock = Mock()
+        read_mock.read = Mock(return_value='data!')
+        getresponse_mock.getresponse = Mock(return_value=read_mock)
         s = HttpLibHttpService('host', 42, 'path')
-        # s.get_transport = Mock(side_effect=pycurl.error)
+        r = s._call('body', {})
+        self.assertIsInstance(r, tuple)
+        self.assertEqual(len(r), 3)
+
+    @patch('holon.services.httplib.HttpLibHttpService.get_transport')
+    def test_call_helper_exception(self, transport):
+        getresponse_mock = Mock()
+        getresponse_mock.getresponse = Mock(side_effect=HTTPException)
+        transport.return_value = getresponse_mock
+        s = HttpLibHttpService('host', 42, 'path')
         with self.assertRaises(s.communication_error_class):
             s._call('body', {})
 
@@ -315,12 +331,11 @@ class PyCurlHttpServiceTestCase(unittest.TestCase):
         self.assertIsInstance(r, tuple)
         self.assertEqual(len(r), 3)
 
-    @patch('pycurl.Curl')
-    @patch('holon.services.pycurl.PyCurlHttpService.get_transport',
-           side_effect=pycurl.error)
-    def test_call_helper_timeout(self, curl, _):
-        # curl.getinfo = Mock(side_effect=pycurl.error)
+    @patch('holon.services.pycurl.PyCurlHttpService.get_transport')
+    def test_call_helper_exception(self, transport):
+        perform_mock = Mock()
+        perform_mock.perform = Mock(side_effect=pycurl.error)
+        transport.return_value = perform_mock
         s = PyCurlHttpService('host', 42, 'path')
-        # s.get_transport = Mock(side_effect=pycurl.error)
         with self.assertRaises(s.communication_error_class):
             s._call('body', {})
