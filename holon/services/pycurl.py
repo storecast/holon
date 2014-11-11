@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 from . import HttpService
-from . import Response
 from StringIO import StringIO
 import pycurl
 # import time
@@ -16,19 +15,17 @@ class PyCurlHttpService(HttpService):
         super(PyCurlHttpService, self).__init__(*args, **kwargs)
         pycurl.global_init(pycurl.GLOBAL_ALL)
 
-    def call(self, body, headers=None):
-        if not headers:
-            headers = {}
-        if self.user_agent and 'user_agent' not in headers:
-            headers['user_agent'] = self.user_agent
-        return Response(*self._call(body, headers))
+    @staticmethod
+    def get_transport():
+        """Helper method to improve testability."""
+        return pycurl.Curl()
 
     def _call(self, body, headers):
         # to collect response data
         data = StringIO()
         # construct curl object
-        curl = pycurl.Curl()
-        curl.setopt(pycurl.USERAGENT,      headers.pop('user_agent', '').encode("utf-8"))
+        curl = self.get_transport()
+        curl.setopt(pycurl.USERAGENT,      headers.pop('User-Agent', '').encode("utf-8"))
         curl.setopt(pycurl.TIMEOUT,        self.run_timeout)
         curl.setopt(pycurl.CONNECTTIMEOUT, self.connect_timeout)
         curl.setopt(pycurl.SSL_VERIFYPEER, False)

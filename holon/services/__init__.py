@@ -28,14 +28,24 @@ class HttpService(object):
         self.run_timeout = run_timeout
         self.communication_error_class = communication_error_class or Exception
 
-    def call(self, method, params, request_id):
+    def _call(self, body, headers):
+        raise NotImplementedError()
+
+    def call(self, body, headers=None):
         """
-        :param method : the json-rpc method to call, e.g. WSReaktorMgmt.getNature
-        :param params : the params of above method
-        :param request_id : id to identify the request
+        :param body : the json-rpc payload
+        :param headers : the params of above method
 
         :returns Response
         """
+        if not headers:
+            headers = {}
+        if self.user_agent and 'User-Agent' not in headers:
+            headers['User-Agent'] = self.user_agent.encode("utf-8")
+        return Response(*self._call(body, headers))
+
+    def get_transport(self):
+        """Helper method to improve testability."""
         raise NotImplementedError()
 
     @property

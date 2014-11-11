@@ -1,9 +1,11 @@
 from contextlib import contextmanager
+from httplib import HTTPException
 from mock import Mock, patch
 from reaktor import *
-from services import HttpService
+from services import HttpService, Response
 from services.httplib import HttpLibHttpService
 from services.pycurl import PyCurlHttpService
+import pycurl
 import unittest
 
 
@@ -260,16 +262,28 @@ class HttpServiceTestCase(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             s.protocol
 
-    def test_call_not_implemented(self):
+    def test_call_helper_not_implemented(self):
         s = HttpService()
         with self.assertRaises(NotImplementedError):
-            s.call('what', 'ever', [])
+            s._call('whatever', {})
 
     def test_base_url(self):
         s = HttpService('host', 42, 'path')
         self.assertFalse(hasattr(s, '_base_url_cache'))
         s.base_url
         self.assertTrue(hasattr(s, '_base_url_cache'))
+
+    def test_call_without_user_agent(self):
+        s = HttpService('host', 42, 'path')
+        s._call = Mock(return_value=(200, 'data', 3))
+        s.call('body')
+        s._call.assert_called_with('body', {})
+
+    def test_call_with_user_agent(self):
+        s = HttpService('host', 42, 'path', user_agent='test agent')
+        s._call = Mock(return_value=(200, 'data', 3))
+        s.call('body')
+        s._call.assert_called_with('body', {'User-Agent': 'test agent'})
 
 
 class HttpLibHttpServiceTestCase(unittest.TestCase):
@@ -278,17 +292,15 @@ class HttpLibHttpServiceTestCase(unittest.TestCase):
         s = HttpLibHttpService('host', 42, 'path')
         self.assertEqual(s.protocol, httpconn._http_vsn_str)
 
-    def test_call_without_user_agent(self):
+    @patch('httplib.HTTPConnection')
+    @patch('holon.services.httplib.HttpLibHttpService.get_transport',
+           side_effect=HTTPException)
+    def test_call_helper_timeout(self, curl, _):
+        # curl.getinfo = Mock(side_effect=pycurl.error)
         s = HttpLibHttpService('host', 42, 'path')
-        s._call = Mock(return_value=(200, 'data', 3))
-        s.call('body')
-        s._call.assert_called_with('body', {})
-
-    def test_call_with_user_agent(self):
-        s = HttpLibHttpService('host', 42, 'path', user_agent='test agent')
-        s._call = Mock(return_value=(200, 'data', 3))
-        s.call('body')
-        s._call.assert_called_with('body', {'User-Agent': 'test agent'})
+        # s.get_transport = Mock(side_effect=pycurl.error)
+        with self.assertRaises(s.communication_error_class):
+            s._call('body', {})
 
 
 class PyCurlHttpServiceTestCase(unittest.TestCase):
@@ -296,14 +308,19 @@ class PyCurlHttpServiceTestCase(unittest.TestCase):
         s = PyCurlHttpService('host', 42, 'path')
         self.assertEqual(s.protocol, s.base_url.split('://')[0].upper())
 
-    def test_call_without_user_agent(self):
+    @patch('pycurl.Curl')
+    def test_call_helper(self, curl):
         s = PyCurlHttpService('host', 42, 'path')
-        s._call = Mock(return_value=(200, 'data', 3))
-        s.call('body')
-        s._call.assert_called_with('body', {})
+        r = s._call('body', {})
+        self.assertIsInstance(r, tuple)
+        self.assertEqual(len(r), 3)
 
-    def test_call_with_user_agent(self):
-        s = PyCurlHttpService('host', 42, 'path', user_agent='test agent')
-        s._call = Mock(return_value=(200, 'data', 3))
-        s.call('body')
-        s._call.assert_called_with('body', {'user_agent': 'test agent'})
+    @patch('pycurl.Curl')
+    @patch('holon.services.pycurl.PyCurlHttpService.get_transport',
+           side_effect=pycurl.error)
+    def test_call_helper_timeout(self, curl, _):
+        # curl.getinfo = Mock(side_effect=pycurl.error)
+        s = PyCurlHttpService('host', 42, 'path')
+        # s.get_transport = Mock(side_effect=pycurl.error)
+        with self.assertRaises(s.communication_error_class):
+            s._call('body', {})
