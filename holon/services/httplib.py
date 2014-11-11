@@ -23,11 +23,15 @@ class HttpLibHttpService(HttpService):
     def call(self, body, headers=None):
         if not headers:
             headers = {}
-        if 'User-Agent' not in headers and self.user_agent:
+        if self.user_agent and 'User-Agent' not in headers:
             headers['User-Agent'] = self.user_agent.encode("utf-8")
+        return Response(*self._call(body, headers))
+
+    def _call(self, body, headers):
+        start_time = time.time()
         try:
-            connection = self.connection_class(self.host, self.port, timeout=self.connect_timeout)
-            start_time = time.time()
+            connection = self.connection_class(self.host, self.port,
+                                               timeout=self.connect_timeout)
             connection.request("POST", self.path, body, headers)
             response = connection.getresponse()
         except (HTTPException, timeout, error), e:
@@ -36,9 +40,8 @@ class HttpLibHttpService(HttpService):
             data = unicode(response.read(), "utf-8")
         finally:
             connection.close()
-
         end_time = time.time()
-        return Response(response.status, data, (end_time - start_time)*1000)
+        return response.status, data, (end_time - start_time)*1000
 
     @property
     def protocol(self):

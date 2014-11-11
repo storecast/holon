@@ -19,12 +19,16 @@ class PyCurlHttpService(HttpService):
     def call(self, body, headers=None):
         if not headers:
             headers = {}
-        user_agent = headers.pop('User-Agent', None) or self.user_agent
+        if self.user_agent and 'user_agent' not in headers:
+            headers['user_agent'] = self.user_agent
+        return Response(*self._call(body, headers))
+
+    def _call(self, body, headers):
         # to collect response data
         data = StringIO()
         # construct curl object
         curl = pycurl.Curl()
-        curl.setopt(pycurl.USERAGENT,      user_agent.encode("utf-8"))
+        curl.setopt(pycurl.USERAGENT,      headers.pop('user_agent', '').encode("utf-8"))
         curl.setopt(pycurl.TIMEOUT,        self.run_timeout)
         curl.setopt(pycurl.CONNECTTIMEOUT, self.connect_timeout)
         curl.setopt(pycurl.SSL_VERIFYPEER, False)
@@ -38,9 +42,7 @@ class PyCurlHttpService(HttpService):
             "Accept: application/json",
         ] + ['%s: %s' % (k, v) for k, v in headers.items()])
 
-        # start_time = time.time()
-
-        # the actual call
+       # the actual call
         try:
             curl.perform()
             code = curl.getinfo(pycurl.HTTP_CODE)
@@ -50,13 +52,7 @@ class PyCurlHttpService(HttpService):
         except pycurl.error, err:
             # raise common error class
             raise self.communication_error_class(err[0], err[1])
-
-        # total_time = time.time() - start_time
-
-        data = data.getvalue()
-        data = unicode(data, "utf-8")
-
-        return Response(code, data, total_time*1000)
+        return code, unicode(data.getvalue(), "utf-8"), total_time
 
     @property
     def protocol(self):

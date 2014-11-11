@@ -278,8 +278,32 @@ class HttpLibHttpServiceTestCase(unittest.TestCase):
         s = HttpLibHttpService('host', 42, 'path')
         self.assertEqual(s.protocol, httpconn._http_vsn_str)
 
+    def test_call_without_user_agent(self):
+        s = HttpLibHttpService('host', 42, 'path')
+        s._call = Mock(return_value=(200, 'data', 3))
+        s.call('body')
+        s._call.assert_called_with('body', {})
+
+    def test_call_with_user_agent(self):
+        s = HttpLibHttpService('host', 42, 'path', user_agent='test agent')
+        s._call = Mock(return_value=(200, 'data', 3))
+        s.call('body')
+        s._call.assert_called_with('body', {'User-Agent': 'test agent'})
+
 
 class PyCurlHttpServiceTestCase(unittest.TestCase):
     def test_protocol(self):
         s = PyCurlHttpService('host', 42, 'path')
         self.assertEqual(s.protocol, s.base_url.split('://')[0].upper())
+
+    def test_call_without_user_agent(self):
+        s = PyCurlHttpService('host', 42, 'path')
+        s._call = Mock(return_value=(200, 'data', 3))
+        s.call('body')
+        s._call.assert_called_with('body', {})
+
+    def test_call_with_user_agent(self):
+        s = PyCurlHttpService('host', 42, 'path', user_agent='test agent')
+        s._call = Mock(return_value=(200, 'data', 3))
+        s.call('body')
+        s._call.assert_called_with('body', {'user_agent': 'test agent'})
