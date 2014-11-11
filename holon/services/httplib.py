@@ -23,7 +23,7 @@ class HttpLibHttpService(HttpService):
     def call(self, body, headers=None):
         if not headers:
             headers = {}
-        if 'User-Agent' not in headers:
+        if 'User-Agent' not in headers and self.user_agent:
             headers['User-Agent'] = self.user_agent.encode("utf-8")
         try:
             connection = self.connection_class(self.host, self.port, timeout=self.connect_timeout)

@@ -2,7 +2,18 @@ from contextlib import contextmanager
 from mock import Mock, patch
 from reaktor import *
 from services import HttpService
+from services.httplib import HttpLibHttpService
 import unittest
+from httplib import HTTPResponse
+
+
+@contextmanager
+def patch_http_response(request, resp):
+    try:
+        request.get_response = Mock(return_value=Mock(read=Mock(return_value=resp)))
+        yield request
+    finally:
+        pass
 
 
 class HttpServiceMock(HttpService):
@@ -241,3 +252,21 @@ class IdGeneratorTestCase(unittest.TestCase):
         self.assertEqual(len(i), 8)
         j = id_generator()
         self.assertNotEqual(i, j)
+
+
+class HttpServiceTestCase(unittest.TestCase):
+    def test_protocol_not_implemented(self):
+        s = HttpService()
+        with self.assertRaises(NotImplementedError):
+            s.protocol
+
+    def test_call_not_implemented(self):
+        s = HttpService()
+        with self.assertRaises(NotImplementedError):
+            s.call('what', 'ever', [])
+
+    def test_base_url(self):
+        s = HttpService('host', 42, 'path')
+        self.assertFalse(hasattr(s, '_base_url_cache'))
+        s.base_url
+        self.assertTrue(hasattr(s, '_base_url_cache'))
