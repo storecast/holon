@@ -3,8 +3,8 @@ from mock import Mock, patch
 from reaktor import *
 from services import HttpService
 from services.httplib import HttpLibHttpService
+from services.pycurl import PyCurlHttpService
 import unittest
-from httplib import HTTPResponse
 
 
 @contextmanager
@@ -270,3 +270,16 @@ class HttpServiceTestCase(unittest.TestCase):
         self.assertFalse(hasattr(s, '_base_url_cache'))
         s.base_url
         self.assertTrue(hasattr(s, '_base_url_cache'))
+
+
+class HttpLibHttpServiceTestCase(unittest.TestCase):
+    @patch('holon.services.httplib.HTTPConnection')
+    def test_protocol(self, httpconn):
+        s = HttpLibHttpService('host', 42, 'path')
+        self.assertEqual(s.protocol, httpconn._http_vsn_str)
+
+
+class PyCurlHttpServiceTestCase(unittest.TestCase):
+    def test_protocol(self):
+        s = PyCurlHttpService('host', 42, 'path')
+        self.assertEqual(s.protocol, s.base_url.split('://')[0].upper())
