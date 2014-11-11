@@ -7,7 +7,7 @@ For txtr-reaktor API see http://txtr.com/reaktor/api/
 :license: BSD, see LICENSE for more details.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 # these are imported for module visibility, do not clean up
 from reaktor import Reaktor
